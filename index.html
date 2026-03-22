@@ -45,6 +45,26 @@
   .stat-value { font-size: 2rem; font-weight: 700; }
   .stat-unit { font-size: 0.85rem; color: var(--muted); font-weight: 400; }
   .stat-detail { font-size: 0.8rem; color: var(--muted); margin-top: 4px; }
+  .info-tip { position: relative; cursor: help; color: var(--muted); font-size: 0.85rem; }
+  .info-tip:hover::after {
+    content: attr(data-tip);
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    top: 24px;
+    background: #3D4F3E;
+    color: #F7F5F0;
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 0.75rem;
+    font-weight: 400;
+    line-height: 1.5;
+    width: 260px;
+    text-transform: none;
+    letter-spacing: normal;
+    z-index: 10;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  }
   .card h2 { font-size: 1rem; margin-bottom: 12px; }
   .chart-container { position: relative; width: 100%; }
   .chart-tall { height: 350px; }
@@ -147,13 +167,13 @@
     <div class="stat-detail" id="avgDetail"></div>
   </div>
   <div class="card">
-    <div class="stat-label">Estimated A1C</div>
+    <div class="stat-label">Estimated A1C <span class="info-tip" data-tip="Calculated using the ADA formula: eA1C = (avg glucose + 46.7) / 28.7. This is a rough estimate based on your CGM average — not a lab result. Individual variation in red blood cell turnover means actual A1C may differ. A lab test every 3 months is recommended for clinical accuracy.">&#9432;</span></div>
     <div class="stat-value" id="eA1C">--</div>
     <div class="stat-detail" id="a1cDetail"></div>
   </div>
   <div class="card">
     <div class="stat-label">Time in Range</div>
-    <div class="stat-value" style="color:var(--green)" id="tir">--</div>
+    <div class="stat-value" id="tir">--</div>
     <div class="stat-detail" id="tirDetail"></div>
   </div>
   <div class="card">
