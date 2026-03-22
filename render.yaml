@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: oh-my-sugar
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: PORT
+        value: "8080"
