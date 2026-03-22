@@ -2,9 +2,12 @@
 """
 Dexcom G7 Dashboard Server
 Multi-user: each user logs in with their own Dexcom credentials via the browser.
-Credentials are held only in server memory, per-session, and never logged or stored to disk.
+Credentials are never stored. Dexcom session IDs are kept in HMAC-signed cookies
+so sessions survive server restarts (Render free tier spin-down).
 """
 
+import hashlib
+import hmac
 import json
 import os
 import re
@@ -20,11 +23,30 @@ from datetime import datetime, timezone
 DEXCOM_BASE_URL = "https://share2.dexcom.com/ShareWebServices/Services"
 DEXCOM_APP_ID = "d89443d2-327c-4a6f-89e5-496bbb0317db"
 
-# In-memory session store: token -> { dexcom_session_id, cache, cache_time }
-# No credentials are stored after initial auth
-sessions = {}
-SESSION_TTL_SECONDS = 3600  # 1 hour
+# Signing key for cookies — set SECRET_KEY env var in production
+SECRET_KEY = os.environ.get("SECRET_KEY", secrets.token_hex(32))
+
+# In-memory cache per dexcom session ID (readings only, not auth)
+_readings_cache = {}  # dexcom_sid -> { readings, time }
 CACHE_TTL_SECONDS = 300  # 5 minutes
+COOKIE_MAX_AGE = 7 * 24 * 3600  # 7 days
+
+
+def sign_value(value):
+    """Create an HMAC-signed cookie value: value.signature"""
+    sig = hmac.new(SECRET_KEY.encode(), value.encode(), hashlib.sha256).hexdigest()
+    return f"{value}.{sig}"
+
+
+def verify_signed_value(signed):
+    """Verify and extract value from signed cookie. Returns value or None."""
+    if not signed or "." not in signed:
+        return None
+    value, sig = signed.rsplit(".", 1)
+    expected = hmac.new(SECRET_KEY.encode(), value.encode(), hashlib.sha256).hexdigest()
+    if hmac.compare_digest(sig, expected):
+        return value
+    return None
 
 
 def dexcom_request(endpoint, payload):
@@ -76,17 +98,15 @@ def dexcom_login(username, password):
     return session_id
 
 
-def fetch_readings_for_session(session_data, minutes=43200, max_count=50000):
-    """Fetch glucose readings using a session's Dexcom session ID."""
+def fetch_readings(dexcom_sid, minutes=43200, max_count=50000):
+    """Fetch glucose readings, with per-session caching."""
     now = datetime.now(timezone.utc)
-    cache = session_data.get("cache")
-    cache_time = session_data.get("cache_time")
-    if cache and cache_time:
-        elapsed = (now - cache_time).total_seconds()
+    cached = _readings_cache.get(dexcom_sid)
+    if cached:
+        elapsed = (now - cached["time"]).total_seconds()
         if elapsed < CACHE_TTL_SECONDS:
-            return cache
+            return cached["readings"]
 
-    dexcom_sid = session_data["dexcom_session_id"]
     readings = dexcom_request(
         "Publisher/ReadPublisherLatestGlucoseValues",
         {
@@ -96,30 +116,17 @@ def fetch_readings_for_session(session_data, minutes=43200, max_count=50000):
         },
     )
 
-    session_data["cache"] = readings
-    session_data["cache_time"] = now
+    _readings_cache[dexcom_sid] = {"readings": readings, "time": now}
     return readings
 
 
-def cleanup_sessions():
-    """Remove expired sessions."""
-    now = datetime.now(timezone.utc)
-    expired = [
-        token
-        for token, data in sessions.items()
-        if (now - data["created"]).total_seconds() > SESSION_TTL_SECONDS
-    ]
-    for token in expired:
-        del sessions[token]
-
-
-def get_session_token(handler):
-    """Extract session token from cookie."""
+def get_dexcom_sid(handler):
+    """Extract and verify the Dexcom session ID from signed cookie."""
     cookie_header = handler.headers.get("Cookie", "")
     cookie = SimpleCookie()
     cookie.load(cookie_header)
     if "session" in cookie:
-        return cookie["session"].value
+        return verify_signed_value(cookie["session"].value)
     return None
 
 
@@ -164,24 +171,17 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             if "@" not in username:
                 username = re.sub(r"[^\d+]", "", username)
 
-            # Authenticate with Dexcom — credentials are used here only, not stored
+            # Authenticate with Dexcom — credentials used here only, never stored
             dexcom_sid = dexcom_login(username, password)
 
-            # Create app session — store only the Dexcom session ID, not credentials
-            cleanup_sessions()
-            token = secrets.token_urlsafe(32)
-            sessions[token] = {
-                "dexcom_session_id": dexcom_sid,
-                "created": datetime.now(timezone.utc),
-                "cache": None,
-                "cache_time": None,
-            }
+            # Store Dexcom session ID in a signed cookie — no server-side session needed
+            signed = sign_value(dexcom_sid)
 
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.send_header(
                 "Set-Cookie",
-                f"session={token}; Path=/; HttpOnly; SameSite=Strict; Max-Age={SESSION_TTL_SECONDS}",
+                f"session={signed}; Path=/; HttpOnly; SameSite=Strict; Max-Age={COOKIE_MAX_AGE}",
             )
             self.end_headers()
             self.wfile.write(json.dumps({"ok": True}).encode("utf-8"))
@@ -194,9 +194,6 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             self.send_json(500, {"error": f"Login failed: {e}"})
 
     def handle_api_logout(self):
-        token = get_session_token(self)
-        if token and token in sessions:
-            del sessions[token]
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
         self.send_header(
@@ -207,26 +204,31 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         self.wfile.write(json.dumps({"ok": True}).encode("utf-8"))
 
     def handle_api_status(self):
-        token = get_session_token(self)
-        if token and token in sessions:
-            self.send_json(200, {"authenticated": True})
-        else:
-            self.send_json(200, {"authenticated": False})
+        dexcom_sid = get_dexcom_sid(self)
+        self.send_json(200, {"authenticated": dexcom_sid is not None})
 
     def handle_api_readings(self):
-        token = get_session_token(self)
-        if not token or token not in sessions:
+        dexcom_sid = get_dexcom_sid(self)
+        if not dexcom_sid:
             self.send_json(401, {"error": "Not logged in"})
             return
 
         try:
-            readings = fetch_readings_for_session(sessions[token])
+            readings = fetch_readings(dexcom_sid)
             self.send_json(200, readings)
         except urllib.error.HTTPError as e:
             if e.code == 500:
-                # Dexcom session expired — user needs to re-login
-                del sessions[token]
-                self.send_json(401, {"error": "Dexcom session expired. Please log in again."})
+                # Dexcom session expired — clear cookie, user needs to re-login
+                self.send_response(401)
+                self.send_header("Content-Type", "application/json")
+                self.send_header(
+                    "Set-Cookie",
+                    "session=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0",
+                )
+                self.end_headers()
+                self.wfile.write(
+                    json.dumps({"error": "Dexcom session expired. Please log in again."}).encode("utf-8")
+                )
             else:
                 self.send_json(500, {"error": f"Dexcom API error: {e.code}"})
         except Exception as e:
@@ -240,9 +242,7 @@ class DashboardHandler(SimpleHTTPRequestHandler):
 
     def log_message(self, format, *args):
         path = str(args[0]) if args else ""
-        # Only log API calls, skip static files
         if "/api/" in path:
-            # Never log credentials
             super().log_message(format, *args)
 
 
@@ -256,6 +256,13 @@ def main():
     print()
     print("  Users log in with their own Dexcom credentials")
     print("  via the browser. No credentials stored on disk.")
+    print("  Sessions persist in signed cookies (7-day expiry).")
+    print()
+
+    if os.environ.get("SECRET_KEY"):
+        print("  SECRET_KEY: loaded from environment")
+    else:
+        print("  SECRET_KEY: auto-generated (set SECRET_KEY env var for persistence)")
     print()
 
     server = HTTPServer(("0.0.0.0", port), DashboardHandler)
