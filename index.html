@@ -1,0 +1,1012 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Oh My Sugar</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+<style>
+  :root {
+    --bg: #0f1117;
+    --card: #1a1d27;
+    --border: #2a2d3a;
+    --text: #e4e4e7;
+    --muted: #9ca3af;
+    --green: #22c55e;
+    --yellow: #eab308;
+    --red: #ef4444;
+    --orange: #f97316;
+    --blue: #3b82f6;
+    --purple: #a855f7;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 20px;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+  h1 { font-size: 1.5rem; margin-bottom: 4px; }
+  .subtitle { color: var(--muted); font-size: 0.85rem; margin-bottom: 20px; }
+  .grid { display: grid; gap: 16px; margin-bottom: 16px; }
+  .grid-4 { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+  .grid-2 { grid-template-columns: 1fr 1fr; }
+  .grid-3 { grid-template-columns: 2fr 1fr; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+  }
+  .stat-label { color: var(--muted); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+  .stat-value { font-size: 2rem; font-weight: 700; }
+  .stat-unit { font-size: 0.85rem; color: var(--muted); font-weight: 400; }
+  .stat-detail { font-size: 0.8rem; color: var(--muted); margin-top: 4px; }
+  .card h2 { font-size: 1rem; margin-bottom: 12px; }
+  .chart-container { position: relative; width: 100%; }
+  .chart-tall { height: 350px; }
+  .chart-med { height: 280px; }
+  .chart-sm { height: 220px; }
+  .tir-bar { display: flex; height: 28px; border-radius: 6px; overflow: hidden; margin: 8px 0; }
+  .tir-bar div { display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: 600; }
+  .tir-legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: 0.78rem; }
+  .tir-legend span { display: flex; align-items: center; gap: 5px; }
+  .tir-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+  th { text-align: left; color: var(--muted); font-weight: 500; padding: 8px 10px; border-bottom: 1px solid var(--border); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; }
+  td { padding: 8px 10px; border-bottom: 1px solid var(--border); }
+  tr:hover td { background: rgba(255,255,255,0.02); }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.72rem; font-weight: 600; }
+  .badge-green { background: rgba(34,197,94,0.15); color: var(--green); }
+  .badge-yellow { background: rgba(234,179,8,0.15); color: var(--yellow); }
+  .badge-red { background: rgba(239,68,68,0.15); color: var(--red); }
+  .loading { text-align: center; padding: 60px; color: var(--muted); }
+  .loading .spinner { display: inline-block; width: 30px; height: 30px; border: 3px solid var(--border); border-top-color: var(--blue); border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 12px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .ai-summary {
+    background: linear-gradient(135deg, #1a1d27 0%, #1e2235 100%);
+    border: 1px solid #2d3555;
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin-bottom: 16px;
+  }
+  .ai-summary h2 {
+    font-size: 1rem;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .ai-spark { color: var(--purple); font-size: 1.1rem; }
+  .ai-section { margin-bottom: 14px; }
+  .ai-section:last-child { margin-bottom: 0; }
+  .ai-section-title { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--purple); margin-bottom: 6px; font-weight: 600; }
+  .ai-text { font-size: 0.88rem; line-height: 1.55; color: var(--text); }
+  .ai-text li { margin-bottom: 4px; margin-left: 16px; }
+  .ai-tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.72rem; font-weight: 600; margin-right: 6px; }
+  .ai-tag-good { background: rgba(34,197,94,0.12); color: var(--green); }
+  .ai-tag-warn { background: rgba(234,179,8,0.12); color: var(--yellow); }
+  .ai-tag-alert { background: rgba(239,68,68,0.12); color: var(--red); }
+  @media (max-width: 768px) {
+    .grid-2, .grid-3 { grid-template-columns: 1fr; }
+    .grid-4 { grid-template-columns: repeat(2, 1fr); }
+    body { padding: 12px; }
+  }
+</style>
+</head>
+<body>
+
+<div style="display:flex;justify-content:space-between;align-items:center">
+  <div>
+    <h1>Oh My Sugar</h1>
+    <p class="subtitle" id="dateRange">Loading data...</p>
+  </div>
+  <button id="logoutBtn" onclick="logout()" style="background:#2a2d3a;color:#9ca3af;border:none;padding:8px 16px;border-radius:8px;font-size:0.82rem;cursor:pointer;display:none">Sign Out</button>
+</div>
+
+<div id="loading" class="loading">
+  <div class="spinner"></div>
+  <div>Fetching glucose readings...</div>
+</div>
+
+<div id="dashboard" style="display:none">
+
+<!-- AI Summary -->
+<div class="ai-summary" id="aiSummary">
+  <h2><span class="ai-spark">&#9733;</span> Prof. Glucose's Suggestions <span class="ai-tag ai-tag-good" style="font-size:0.65rem;vertical-align:middle">&#9733; AI Assistant</span></h2>
+  <div id="aiContent">Analyzing your glucose data...</div>
+</div>
+
+<!-- Summary Stats -->
+<div class="grid grid-4">
+  <div class="card">
+    <div class="stat-label">Average Glucose</div>
+    <div class="stat-value" id="avgGlucose">--</div>
+    <div class="stat-detail" id="avgDetail"></div>
+  </div>
+  <div class="card">
+    <div class="stat-label">Estimated A1C</div>
+    <div class="stat-value" id="eA1C">--</div>
+    <div class="stat-detail" id="a1cDetail"></div>
+  </div>
+  <div class="card">
+    <div class="stat-label">Time in Range</div>
+    <div class="stat-value" style="color:var(--green)" id="tir">--</div>
+    <div class="stat-detail" id="tirDetail"></div>
+  </div>
+  <div class="card">
+    <div class="stat-label">Glucose Variability</div>
+    <div class="stat-value" id="gmi">--</div>
+    <div class="stat-detail" id="gmiDetail"></div>
+  </div>
+</div>
+
+<!-- Time in Range Bar -->
+<div class="card" style="margin-bottom:16px">
+  <h2>Time in Range Breakdown</h2>
+  <div class="tir-bar" id="tirBar"></div>
+  <div class="tir-legend" id="tirLegend"></div>
+</div>
+
+<!-- 30-Day Trend -->
+<div class="card" style="margin-bottom:16px">
+  <h2>30-Day Glucose Trend</h2>
+  <div class="chart-container chart-tall">
+    <canvas id="trendChart"></canvas>
+  </div>
+</div>
+
+<!-- Daily Patterns + Distribution -->
+<div class="grid grid-3">
+  <div class="card">
+    <h2>Daily Glucose Pattern (Overlay)</h2>
+    <div class="chart-container chart-med">
+      <canvas id="dailyChart"></canvas>
+    </div>
+  </div>
+  <div class="card">
+    <h2>Glucose Distribution</h2>
+    <div class="chart-container chart-med">
+      <canvas id="distChart"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- Daily Stats + Hourly Avg -->
+<div class="grid grid-2">
+  <div class="card">
+    <h2>Hourly Average</h2>
+    <div class="chart-container chart-sm">
+      <canvas id="hourlyChart"></canvas>
+    </div>
+  </div>
+  <div class="card">
+    <h2>Daily Average Trend</h2>
+    <div class="chart-container chart-sm">
+      <canvas id="dailyAvgChart"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- Daily Table -->
+<div class="card" style="margin-top:16px">
+  <h2>Daily Breakdown</h2>
+  <div style="overflow-x:auto">
+    <table id="dailyTable">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Avg</th>
+          <th>Min</th>
+          <th>Max</th>
+          <th>Std Dev</th>
+          <th>Time in Range</th>
+          <th>Low</th>
+          <th>High</th>
+          <th>Readings</th>
+          <th>Rating</th>
+        </tr>
+      </thead>
+      <tbody id="dailyTableBody"></tbody>
+    </table>
+  </div>
+</div>
+
+</div>
+
+<script>
+const RANGE_LOW = 70;
+const RANGE_HIGH = 180;
+const VERY_LOW = 54;
+const VERY_HIGH = 250;
+
+function parseDexcomDate(dtStr) {
+  // Dexcom returns dates like "Date(1234567890000)"
+  const match = dtStr.match(/Date\((\d+)\)/);
+  if (match) return new Date(parseInt(match[1]));
+  return new Date(dtStr);
+}
+
+function processReadings(raw) {
+  return raw.map(r => ({
+    time: parseDexcomDate(r.WT || r.DT || r.ST),
+    value: r.Value,
+    trend: r.Trend
+  })).sort((a, b) => a.time - b.time);
+}
+
+function calcStats(values) {
+  if (!values.length) return { avg: 0, min: 0, max: 0, std: 0, count: 0 };
+  const avg = values.reduce((a, b) => a + b, 0) / values.length;
+  const std = Math.sqrt(values.reduce((s, v) => s + (v - avg) ** 2, 0) / values.length);
+  return {
+    avg: Math.round(avg),
+    min: Math.min(...values),
+    max: Math.max(...values),
+    std: Math.round(std),
+    count: values.length
+  };
+}
+
+function tirBreakdown(values) {
+  const n = values.length || 1;
+  const veryLow = values.filter(v => v < VERY_LOW).length;
+  const low = values.filter(v => v >= VERY_LOW && v < RANGE_LOW).length;
+  const inRange = values.filter(v => v >= RANGE_LOW && v <= RANGE_HIGH).length;
+  const high = values.filter(v => v > RANGE_HIGH && v <= VERY_HIGH).length;
+  const veryHigh = values.filter(v => v > VERY_HIGH).length;
+  return {
+    veryLow: (veryLow / n * 100),
+    low: (low / n * 100),
+    inRange: (inRange / n * 100),
+    high: (high / n * 100),
+    veryHigh: (veryHigh / n * 100),
+  };
+}
+
+function groupByDate(readings) {
+  const groups = {};
+  readings.forEach(r => {
+    const key = r.time.toLocaleDateString('en-CA'); // YYYY-MM-DD
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(r);
+  });
+  return groups;
+}
+
+function chartDefaults() {
+  Chart.defaults.color = '#9ca3af';
+  Chart.defaults.borderColor = '#2a2d3a';
+  Chart.defaults.font.family = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+  Chart.defaults.font.size = 11;
+}
+
+function renderStats(readings) {
+  const values = readings.map(r => r.value);
+  const stats = calcStats(values);
+  const tir = tirBreakdown(values);
+  const eA1C = ((stats.avg + 46.7) / 28.7).toFixed(1);
+  const cv = stats.avg > 0 ? (stats.std / stats.avg * 100).toFixed(1) : 0;
+
+  document.getElementById('avgGlucose').innerHTML = `${stats.avg} <span class="stat-unit">mg/dL</span>`;
+  document.getElementById('avgDetail').textContent = `Range: ${stats.min}–${stats.max} mg/dL`;
+  document.getElementById('eA1C').innerHTML = `${eA1C}<span class="stat-unit">%</span>`;
+  document.getElementById('a1cDetail').textContent = `Based on ${stats.count.toLocaleString()} readings`;
+  document.getElementById('tir').textContent = `${tir.inRange.toFixed(1)}%`;
+  document.getElementById('tirDetail').textContent = `Target: ${RANGE_LOW}–${RANGE_HIGH} mg/dL`;
+  document.getElementById('gmi').innerHTML = `${cv}<span class="stat-unit">% CV</span>`;
+  document.getElementById('gmiDetail').textContent = `Std Dev: ${stats.std} mg/dL (target <36%)`;
+
+  // TIR bar
+  const ranges = [
+    { key: 'veryLow', label: 'Very Low <54', color: '#991b1b', pct: tir.veryLow },
+    { key: 'low', label: 'Low 54–69', color: '#ef4444', pct: tir.low },
+    { key: 'inRange', label: 'In Range 70–180', color: '#22c55e', pct: tir.inRange },
+    { key: 'high', label: 'High 181–250', color: '#eab308', pct: tir.high },
+    { key: 'veryHigh', label: 'Very High >250', color: '#f97316', pct: tir.veryHigh },
+  ];
+  const bar = document.getElementById('tirBar');
+  const legend = document.getElementById('tirLegend');
+  bar.innerHTML = ranges.filter(r => r.pct > 0).map(r =>
+    `<div style="width:${r.pct}%;background:${r.color}">${r.pct >= 5 ? r.pct.toFixed(1) + '%' : ''}</div>`
+  ).join('');
+  legend.innerHTML = ranges.map(r =>
+    `<span><span class="tir-dot" style="background:${r.color}"></span>${r.label}: ${r.pct.toFixed(1)}%</span>`
+  ).join('');
+
+  // Date range
+  const first = readings[0].time;
+  const last = readings[readings.length - 1].time;
+  const days = Math.round((last - first) / 86400000);
+  document.getElementById('dateRange').textContent =
+    `${first.toLocaleDateString()} – ${last.toLocaleDateString()} · ${days} days · ${stats.count.toLocaleString()} readings`;
+}
+
+function renderTrendChart(readings) {
+  const ctx = document.getElementById('trendChart').getContext('2d');
+  // Downsample for performance if needed
+  const step = readings.length > 5000 ? Math.ceil(readings.length / 5000) : 1;
+  const data = readings.filter((_, i) => i % step === 0);
+
+  // Auto-detect appropriate time unit based on data span
+  const spanMs = data.length > 1 ? data[data.length-1].time - data[0].time : 0;
+  const spanHours = spanMs / 3600000;
+  let timeUnit = 'day', timeFmt = 'MMM d';
+  if (spanHours < 6) { timeUnit = 'minute'; timeFmt = 'h:mm a'; }
+  else if (spanHours < 48) { timeUnit = 'hour'; timeFmt = 'ha'; }
+  else if (spanHours < 24 * 14) { timeUnit = 'day'; timeFmt = 'MMM d'; }
+
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      datasets: [{
+        data: data.map(r => ({ x: r.time, y: r.value })),
+        borderColor: '#3b82f6',
+        borderWidth: 1.5,
+        pointRadius: spanHours < 24 ? 3 : 0,
+        pointHoverRadius: 6,
+        pointBackgroundColor: '#3b82f6',
+        pointBorderColor: '#1a1d27',
+        pointBorderWidth: 2,
+        fill: false,
+        tension: 0.2,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: {
+        mode: 'nearest',
+        axis: 'x',
+        intersect: false,
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#1e2130',
+          borderColor: '#3b82f6',
+          borderWidth: 1,
+          titleFont: { size: 13 },
+          bodyFont: { size: 13 },
+          padding: 10,
+          displayColors: false,
+          callbacks: {
+            title: items => new Date(items[0].parsed.x).toLocaleString('en-US', {
+              weekday: 'short', month: 'short', day: 'numeric',
+              hour: 'numeric', minute: '2-digit'
+            }),
+            label: item => {
+              const v = item.parsed.y;
+              const tag = v < RANGE_LOW ? ' (LOW)' : v > RANGE_HIGH ? ' (HIGH)' : '';
+              return `${v} mg/dL${tag}`;
+            },
+            afterLabel: item => {
+              const idx = item.dataIndex;
+              const ds = item.dataset.data;
+              if (idx > 0) {
+                const delta = ds[idx].y - ds[idx-1].y;
+                const sign = delta >= 0 ? '+' : '';
+                return `Change: ${sign}${delta} mg/dL`;
+              }
+              return '';
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          type: 'time',
+          time: { unit: timeUnit, displayFormats: { minute: timeFmt, hour: timeFmt, day: timeFmt } },
+          grid: { display: false },
+          ticks: { color: '#9ca3af', font: { size: 11 }, maxRotation: 0 }
+        },
+        y: {
+          min: 40,
+          max: 350,
+          grid: { color: '#2a2d3a' },
+          ticks: { color: '#9ca3af' }
+        }
+      },
+    },
+    plugins: [
+      {
+        id: 'rangeHighlight',
+        beforeDraw(chart) {
+          const { ctx, chartArea, scales: { y } } = chart;
+          const top = y.getPixelForValue(RANGE_HIGH);
+          const bottom = y.getPixelForValue(RANGE_LOW);
+          ctx.save();
+          ctx.fillStyle = 'rgba(34, 197, 94, 0.06)';
+          ctx.fillRect(chartArea.left, top, chartArea.width, bottom - top);
+          // Draw range boundary lines
+          ctx.strokeStyle = 'rgba(34, 197, 94, 0.3)';
+          ctx.lineWidth = 1;
+          ctx.setLineDash([4, 4]);
+          ctx.beginPath();
+          ctx.moveTo(chartArea.left, top);
+          ctx.lineTo(chartArea.right, top);
+          ctx.moveTo(chartArea.left, bottom);
+          ctx.lineTo(chartArea.right, bottom);
+          ctx.stroke();
+          ctx.restore();
+        }
+      },
+      {
+        id: 'crosshair',
+        afterDraw(chart) {
+          if (chart.tooltip && chart.tooltip.getActiveElements().length) {
+            const { ctx, chartArea } = chart;
+            const x = chart.tooltip.getActiveElements()[0].element.x;
+            ctx.save();
+            ctx.strokeStyle = 'rgba(156, 163, 175, 0.4)';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([3, 3]);
+            ctx.beginPath();
+            ctx.moveTo(x, chartArea.top);
+            ctx.lineTo(x, chartArea.bottom);
+            ctx.stroke();
+            ctx.restore();
+          }
+        }
+      }
+    ]
+  });
+}
+
+function renderDailyOverlay(readings) {
+  const ctx = document.getElementById('dailyChart').getContext('2d');
+  const groups = groupByDate(readings);
+  const days = Object.keys(groups).sort();
+  const colors = ['#3b82f6', '#8b5cf6', '#ec4899', '#f97316', '#22c55e', '#06b6d4', '#eab308'];
+
+  // Show last 7 days as individual lines, rest as a grey aggregate
+  const recentDays = days.slice(-7);
+  const datasets = [];
+
+  // Older days as faint background
+  const olderDays = days.slice(0, -7);
+  olderDays.forEach(day => {
+    const pts = groups[day].map(r => {
+      const d = new Date(r.time);
+      const mins = d.getHours() * 60 + d.getMinutes();
+      return { x: mins, y: r.value };
+    }).sort((a, b) => a.x - b.x);
+    datasets.push({
+      data: pts,
+      borderColor: 'rgba(100,100,120,0.1)',
+      borderWidth: 1,
+      pointRadius: 0,
+      fill: false,
+      tension: 0.3,
+    });
+  });
+
+  // Recent days as colored lines
+  recentDays.forEach((day, i) => {
+    const pts = groups[day].map(r => {
+      const d = new Date(r.time);
+      const mins = d.getHours() * 60 + d.getMinutes();
+      return { x: mins, y: r.value, _time: r.time };
+    }).sort((a, b) => a.x - b.x);
+    datasets.push({
+      label: new Date(day + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }),
+      data: pts,
+      borderColor: colors[i % colors.length],
+      borderWidth: 1.5,
+      pointRadius: 3,
+      pointHoverRadius: 6,
+      pointBackgroundColor: colors[i % colors.length],
+      pointBorderColor: '#1a1d27',
+      pointBorderWidth: 1,
+      fill: false,
+      tension: 0.3,
+    });
+  });
+
+  new Chart(ctx, {
+    type: 'line',
+    data: { datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: {
+        mode: 'nearest',
+        intersect: false,
+      },
+      plugins: {
+        legend: {
+          display: true,
+          labels: { filter: item => !!item.text, boxWidth: 12, font: { size: 10 } }
+        },
+        tooltip: {
+          backgroundColor: '#1e2130',
+          borderColor: '#3b82f6',
+          borderWidth: 1,
+          padding: 10,
+          displayColors: true,
+          callbacks: {
+            title: items => {
+              const mins = items[0].parsed.x;
+              const h = Math.floor(mins / 60);
+              const m = Math.round(mins % 60);
+              const ampm = h < 12 ? 'AM' : 'PM';
+              const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+              return `${h12}:${String(m).padStart(2,'0')} ${ampm}`;
+            },
+            label: item => ` ${item.dataset.label}: ${item.parsed.y} mg/dL`
+          }
+        }
+      },
+      scales: {
+        x: {
+          type: 'linear',
+          min: 0, max: 1440,
+          ticks: {
+            stepSize: 180,
+            color: '#9ca3af',
+            callback: v => {
+              const h = Math.floor(v / 60);
+              return h === 0 ? '12am' : h < 12 ? `${h}am` : h === 12 ? '12pm' : `${h - 12}pm`;
+            }
+          },
+          grid: { display: false }
+        },
+        y: { min: 40, max: 350, grid: { color: '#2a2d3a' }, ticks: { color: '#9ca3af' } }
+      }
+    },
+    plugins: [{
+      id: 'rangeHighlight2',
+      beforeDraw(chart) {
+        const { ctx, chartArea, scales: { y } } = chart;
+        const top = y.getPixelForValue(RANGE_HIGH);
+        const bottom = y.getPixelForValue(RANGE_LOW);
+        ctx.save();
+        ctx.fillStyle = 'rgba(34, 197, 94, 0.06)';
+        ctx.fillRect(chartArea.left, top, chartArea.width, bottom - top);
+        ctx.restore();
+      }
+    }]
+  });
+}
+
+function renderDistribution(readings) {
+  const ctx = document.getElementById('distChart').getContext('2d');
+  const values = readings.map(r => r.value);
+  const buckets = [];
+  for (let i = 40; i <= 350; i += 10) {
+    buckets.push({ min: i, max: i + 10, count: 0 });
+  }
+  values.forEach(v => {
+    const idx = Math.min(Math.floor((v - 40) / 10), buckets.length - 1);
+    if (idx >= 0) buckets[idx].count++;
+  });
+
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: buckets.map(b => b.min),
+      datasets: [{
+        data: buckets.map(b => b.count),
+        backgroundColor: buckets.map(b => {
+          const mid = (b.min + b.max) / 2;
+          if (mid < VERY_LOW) return '#991b1b';
+          if (mid < RANGE_LOW) return '#ef4444';
+          if (mid <= RANGE_HIGH) return '#22c55e';
+          if (mid <= VERY_HIGH) return '#eab308';
+          return '#f97316';
+        }),
+        borderWidth: 0,
+        borderRadius: 2,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: {
+          grid: { display: false },
+          ticks: { maxTicksLimit: 10, callback: v => v + '' }
+        },
+        y: { grid: { color: '#2a2d3a' }, ticks: { display: false } }
+      }
+    }
+  });
+}
+
+function renderHourlyAvg(readings) {
+  const ctx = document.getElementById('hourlyChart').getContext('2d');
+  const hourly = Array.from({ length: 24 }, () => []);
+  readings.forEach(r => {
+    hourly[r.time.getHours()].push(r.value);
+  });
+  const avgs = hourly.map(vals => vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length) : 0);
+  const p10 = hourly.map(vals => {
+    if (!vals.length) return 0;
+    const s = vals.slice().sort((a, b) => a - b);
+    return s[Math.floor(s.length * 0.1)];
+  });
+  const p90 = hourly.map(vals => {
+    if (!vals.length) return 0;
+    const s = vals.slice().sort((a, b) => a - b);
+    return s[Math.floor(s.length * 0.9)];
+  });
+  const labels = Array.from({ length: 24 }, (_, i) =>
+    i === 0 ? '12a' : i < 12 ? `${i}a` : i === 12 ? '12p' : `${i - 12}p`
+  );
+
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: '90th %ile',
+          data: p90,
+          borderColor: 'transparent',
+          backgroundColor: 'rgba(59,130,246,0.1)',
+          fill: '+1',
+          pointRadius: 0,
+          tension: 0.4,
+        },
+        {
+          label: 'Average',
+          data: avgs,
+          borderColor: '#3b82f6',
+          borderWidth: 2,
+          pointRadius: 0,
+          fill: false,
+          tension: 0.4,
+        },
+        {
+          label: '10th %ile',
+          data: p10,
+          borderColor: 'transparent',
+          backgroundColor: 'transparent',
+          fill: false,
+          pointRadius: 0,
+          tension: 0.4,
+        },
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: true, labels: { boxWidth: 12, font: { size: 10 } } }
+      },
+      scales: {
+        x: { grid: { display: false } },
+        y: { min: 40, max: 300, grid: { color: '#2a2d3a' } }
+      }
+    },
+    plugins: [{
+      id: 'rangeHighlight3',
+      beforeDraw(chart) {
+        const { ctx, chartArea, scales: { y } } = chart;
+        const top = y.getPixelForValue(RANGE_HIGH);
+        const bottom = y.getPixelForValue(RANGE_LOW);
+        ctx.save();
+        ctx.fillStyle = 'rgba(34, 197, 94, 0.06)';
+        ctx.fillRect(chartArea.left, top, chartArea.width, bottom - top);
+        ctx.restore();
+      }
+    }]
+  });
+}
+
+function renderDailyAvgChart(readings) {
+  const ctx = document.getElementById('dailyAvgChart').getContext('2d');
+  const groups = groupByDate(readings);
+  const days = Object.keys(groups).sort();
+  const avgs = days.map(d => {
+    const vals = groups[d].map(r => r.value);
+    return Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
+  });
+
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: days.map(d => {
+        const dt = new Date(d + 'T12:00:00');
+        return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      }),
+      datasets: [{
+        data: avgs,
+        backgroundColor: avgs.map(v => {
+          if (v < RANGE_LOW) return '#ef4444';
+          if (v <= RANGE_HIGH) return '#22c55e';
+          return '#eab308';
+        }),
+        borderWidth: 0,
+        borderRadius: 3,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { display: false }, ticks: { maxTicksLimit: 15, font: { size: 9 } } },
+        y: { min: 60, grid: { color: '#2a2d3a' } }
+      }
+    }
+  });
+}
+
+function renderDailyTable(readings) {
+  const groups = groupByDate(readings);
+  const days = Object.keys(groups).sort().reverse();
+  const tbody = document.getElementById('dailyTableBody');
+
+  tbody.innerHTML = days.map(day => {
+    const vals = groups[day].map(r => r.value);
+    const stats = calcStats(vals);
+    const tir = tirBreakdown(vals);
+    const lowPct = tir.veryLow + tir.low;
+    const highPct = tir.high + tir.veryHigh;
+    const dt = new Date(day + 'T12:00:00');
+    const dayLabel = dt.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+
+    let badge = 'badge-green', label = 'Good';
+    if (tir.inRange < 50 || lowPct > 5) { badge = 'badge-red'; label = 'Needs attention'; }
+    else if (tir.inRange < 70) { badge = 'badge-yellow'; label = 'Fair'; }
+
+    return `<tr>
+      <td><strong>${dayLabel}</strong></td>
+      <td>${stats.avg}</td>
+      <td>${stats.min}</td>
+      <td>${stats.max}</td>
+      <td>${stats.std}</td>
+      <td>${tir.inRange.toFixed(1)}%</td>
+      <td>${lowPct.toFixed(1)}%</td>
+      <td>${highPct.toFixed(1)}%</td>
+      <td>${stats.count}</td>
+      <td><span class="badge ${badge}">${label}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+function renderAISummary(readings) {
+  const now = new Date();
+  const todayKey = now.toLocaleDateString('en-CA');
+  const today = readings.filter(r => r.time.toLocaleDateString('en-CA') === todayKey);
+  const src = today.length >= 3 ? today : readings; // fallback to all data if today has few readings
+  const isToday = today.length >= 3;
+  const vals = src.map(r => r.value);
+  const stats = calcStats(vals);
+  const tir = tirBreakdown(vals);
+
+  // Detect spikes (rise > 40 mg/dL within 30 min)
+  const spikes = [];
+  for (let i = 0; i < src.length; i++) {
+    for (let j = i + 1; j < src.length; j++) {
+      const dt = (src[j].time - src[i].time) / 60000;
+      if (dt > 45) break;
+      if (dt >= 5 && src[j].value - src[i].value > 40) {
+        spikes.push({
+          time: src[i].time,
+          from: src[i].value,
+          to: src[j].value,
+          rise: src[j].value - src[i].value,
+          mins: Math.round(dt)
+        });
+        i = j; // skip ahead
+        break;
+      }
+    }
+  }
+
+  // Detect drops (fall > 40 mg/dL within 30 min)
+  const drops = [];
+  for (let i = 0; i < src.length; i++) {
+    for (let j = i + 1; j < src.length; j++) {
+      const dt = (src[j].time - src[i].time) / 60000;
+      if (dt > 45) break;
+      if (dt >= 5 && src[i].value - src[j].value > 40) {
+        drops.push({
+          time: src[i].time,
+          from: src[i].value,
+          to: src[j].value,
+          drop: src[i].value - src[j].value,
+          mins: Math.round(dt)
+        });
+        i = j;
+        break;
+      }
+    }
+  }
+
+  // Detect time periods with consistently high/low values
+  const highPeriods = [];
+  const lowPeriods = [];
+  let highStart = null, lowStart = null;
+  src.forEach((r, i) => {
+    if (r.value > RANGE_HIGH) {
+      if (!highStart) highStart = r;
+    } else {
+      if (highStart && (r.time - highStart.time) > 30 * 60000) {
+        highPeriods.push({ start: highStart.time, end: src[i - 1].time });
+      }
+      highStart = null;
+    }
+    if (r.value < RANGE_LOW) {
+      if (!lowStart) lowStart = r;
+    } else {
+      if (lowStart && (r.time - lowStart.time) > 15 * 60000) {
+        lowPeriods.push({ start: lowStart.time, end: src[i - 1].time });
+      }
+      lowStart = null;
+    }
+  });
+
+  // Hourly averages to find problematic times of day
+  const hourBuckets = Array.from({ length: 24 }, () => []);
+  src.forEach(r => hourBuckets[r.time.getHours()].push(r.value));
+  const hourAvgs = hourBuckets.map(b => b.length ? b.reduce((a, c) => a + c, 0) / b.length : null);
+  const peakHour = hourAvgs.reduce((best, v, i) => (v !== null && (best === null || v > hourAvgs[best]) ? i : best), null);
+  const lowHour = hourAvgs.reduce((best, v, i) => (v !== null && (best === null || v < hourAvgs[best]) ? i : best), null);
+
+  const fmtHour = h => {
+    const ampm = h < 12 ? 'AM' : 'PM';
+    const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+    return `${h12} ${ampm}`;
+  };
+  const fmtTime = d => d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+
+  // Build overall status tag
+  let statusTag, statusClass;
+  if (tir.inRange >= 85 && tir.veryLow === 0) {
+    statusTag = 'Excellent'; statusClass = 'ai-tag-good';
+  } else if (tir.inRange >= 70 && (tir.veryLow + tir.low) < 4) {
+    statusTag = 'Good'; statusClass = 'ai-tag-good';
+  } else if (tir.inRange >= 50) {
+    statusTag = 'Needs Improvement'; statusClass = 'ai-tag-warn';
+  } else {
+    statusTag = 'Needs Attention'; statusClass = 'ai-tag-alert';
+  }
+
+  const period = isToday ? 'Today' : 'Recent period';
+
+  // Build narrative
+  let narrative = `<span class="ai-tag ${statusClass}">${statusTag}</span> `;
+  narrative += `<strong>${period}</strong>: Your glucose averaged <strong>${stats.avg} mg/dL</strong> `;
+  narrative += `(range ${stats.min}–${stats.max}), with <strong>${tir.inRange.toFixed(1)}%</strong> time in range (70–180 mg/dL). `;
+
+  if (stats.std <= 25) {
+    narrative += `Your variability is low (SD ${stats.std}), indicating stable glucose control. `;
+  } else if (stats.std <= 36) {
+    narrative += `Your variability is moderate (SD ${stats.std}). `;
+  } else {
+    narrative += `Your variability is high (SD ${stats.std}) — glucose is swinging more than ideal. `;
+  }
+
+  // Spike/drop narrative
+  let events = '';
+  if (spikes.length > 0) {
+    events += `<li><strong>${spikes.length} glucose spike${spikes.length > 1 ? 's' : ''} detected</strong>: `;
+    events += spikes.map(s =>
+      `+${s.rise} mg/dL at ${fmtTime(s.time)} (${s.from} → ${s.to} in ${s.mins} min)`
+    ).join('; ');
+    events += `. Spikes like this often follow high-carb meals or sugary drinks.</li>`;
+  }
+  if (drops.length > 0) {
+    events += `<li><strong>${drops.length} rapid drop${drops.length > 1 ? 's' : ''} detected</strong>: `;
+    events += drops.map(d =>
+      `−${d.drop} mg/dL at ${fmtTime(d.time)} (${d.from} → ${d.to} in ${d.mins} min)`
+    ).join('; ');
+    events += `. Rapid drops can follow insulin spikes from refined carbs, or physical activity.</li>`;
+  }
+  if (highPeriods.length > 0) {
+    events += `<li>Glucose stayed <strong>above 180</strong> for extended periods: `;
+    events += highPeriods.map(p => `${fmtTime(p.start)}–${fmtTime(p.end)}`).join(', ');
+    events += `.</li>`;
+  }
+  if (lowPeriods.length > 0) {
+    events += `<li>Glucose dropped <strong>below 70</strong> for extended periods: `;
+    events += lowPeriods.map(p => `${fmtTime(p.start)}–${fmtTime(p.end)}`).join(', ');
+    events += `. Consider having a small snack before these times.</li>`;
+  }
+  if (peakHour !== null && hourAvgs[peakHour] > 150) {
+    events += `<li>Your glucose tends to be <strong>highest around ${fmtHour(peakHour)}</strong> (avg ${Math.round(hourAvgs[peakHour])} mg/dL). Review what you typically eat 1–2 hours before this time.</li>`;
+  }
+  if (!spikes.length && !drops.length && !highPeriods.length && !lowPeriods.length) {
+    events += `<li>No significant glucose spikes, drops, or extended out-of-range periods detected. Your levels have been remarkably stable.</li>`;
+  }
+
+  // Build food suggestions based on patterns
+  let suggestions = '';
+  if (spikes.length > 0 || (tir.high + tir.veryHigh) > 15) {
+    suggestions += `<li><strong>Reduce post-meal spikes</strong>: Pair carbs with protein, fat, or fiber (e.g., bread with avocado instead of bread alone). Eat vegetables first, then protein, then carbs.</li>`;
+    suggestions += `<li><strong>Watch portion sizes</strong> of rice, pasta, bread, and sweetened drinks — these are the most common spike triggers.</li>`;
+    suggestions += `<li><strong>Take a 10–15 min walk</strong> after meals — even light movement significantly blunts post-meal glucose rises.</li>`;
+  }
+  if ((tir.veryLow + tir.low) > 3) {
+    suggestions += `<li><strong>Prevent lows</strong>: Don't skip meals. Keep a small snack handy (nuts, cheese, fruit). If exercising, eat a small carb snack beforehand.</li>`;
+  }
+  if (stats.std > 36) {
+    suggestions += `<li><strong>Stabilize your routine</strong>: Eating at consistent times each day helps reduce glucose swings. Aim for meals every 4–5 hours.</li>`;
+    suggestions += `<li><strong>Favor low-glycemic foods</strong>: Swap white rice for brown, white bread for whole grain, juice for whole fruit.</li>`;
+  }
+  if (tir.inRange >= 85 && spikes.length === 0) {
+    suggestions += `<li><strong>Keep it up!</strong> Your current eating pattern is working well. Continue monitoring to spot any changes over time.</li>`;
+  }
+  if (peakHour !== null && hourAvgs[peakHour] > 150) {
+    const mealHour = (peakHour - 1 + 24) % 24;
+    suggestions += `<li><strong>Focus on your ${fmtHour(mealHour)} meal</strong>: Since glucose peaks around ${fmtHour(peakHour)}, consider logging what you eat at this time and experimenting with lower-carb alternatives.</li>`;
+  }
+  suggestions += `<li><strong>Food journal tip</strong>: Note what you eat and check your glucose 1–2 hours later. Over a week, patterns will emerge showing which foods cause the biggest swings for <em>your</em> body.</li>`;
+
+  const html = `
+    <div class="ai-section">
+      <div class="ai-section-title">Today's Analysis</div>
+      <div class="ai-text">${narrative}</div>
+    </div>
+    <div class="ai-section">
+      <div class="ai-section-title">Key Events</div>
+      <ul class="ai-text">${events}</ul>
+    </div>
+    <div class="ai-section">
+      <div class="ai-section-title">Food & Lifestyle Suggestions</div>
+      <ul class="ai-text">${suggestions}</ul>
+    </div>
+  `;
+  document.getElementById('aiContent').innerHTML = html;
+}
+
+async function logout() {
+  await fetch('/api/logout', { method: 'POST' });
+  window.location.href = '/login';
+}
+
+async function init() {
+  // Check auth status first
+  const status = await fetch('/api/status');
+  const statusData = await status.json();
+  if (!statusData.authenticated) {
+    window.location.href = '/login';
+    return;
+  }
+  document.getElementById('logoutBtn').style.display = 'block';
+
+  chartDefaults();
+  try {
+    const res = await fetch('/api/readings');
+    if (res.status === 401) {
+      window.location.href = '/login';
+      return;
+    }
+    if (!res.ok) throw new Error(`API error: ${res.status}`);
+    const raw = await res.json();
+    if (raw.error) throw new Error(raw.error);
+
+    const readings = processReadings(raw);
+    if (!readings.length) throw new Error('No readings found');
+
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('dashboard').style.display = 'block';
+
+    renderAISummary(readings);
+    renderStats(readings);
+    renderTrendChart(readings);
+    renderDailyOverlay(readings);
+    renderDistribution(readings);
+    renderHourlyAvg(readings);
+    renderDailyAvgChart(readings);
+    renderDailyTable(readings);
+  } catch (err) {
+    document.getElementById('loading').innerHTML =
+      `<div style="color:#ef4444">Error: ${err.message}</div>
+       <div style="margin-top:12px;color:#9ca3af">Make sure the server is running with valid Dexcom credentials.</div>`;
+  }
+}
+
+init();
+// Auto-refresh every 5 minutes
+setInterval(init, 300000);
+</script>
+</body>
+</html>
