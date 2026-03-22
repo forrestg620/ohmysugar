@@ -2,10 +2,11 @@
 """
 Dexcom G7 Dashboard Server
 Multi-user: each user logs in with their own Dexcom credentials via the browser.
-Credentials are never stored. Dexcom session IDs are kept in HMAC-signed cookies
-so sessions survive server restarts (Render free tier spin-down).
+Credentials are stored in encrypted, HttpOnly cookies — never on disk.
+When a Dexcom session expires, the server auto-re-authenticates transparently.
 """
 
+import base64
 import hashlib
 import hmac
 import json
@@ -23,30 +24,46 @@ from datetime import datetime, timezone
 DEXCOM_BASE_URL = "https://share2.dexcom.com/ShareWebServices/Services"
 DEXCOM_APP_ID = "d89443d2-327c-4a6f-89e5-496bbb0317db"
 
-# Signing key for cookies — set SECRET_KEY env var in production
+# Signing/encryption key for cookies — set SECRET_KEY env var in production
 SECRET_KEY = os.environ.get("SECRET_KEY", secrets.token_hex(32))
 
 # In-memory cache per dexcom session ID (readings only, not auth)
 _readings_cache = {}  # dexcom_sid -> { readings, time }
 CACHE_TTL_SECONDS = 300  # 5 minutes
-COOKIE_MAX_AGE = 7 * 24 * 3600  # 7 days
+COOKIE_MAX_AGE = 30 * 24 * 3600  # 30 days
 
 
-def sign_value(value):
-    """Create an HMAC-signed cookie value: value.signature"""
-    sig = hmac.new(SECRET_KEY.encode(), value.encode(), hashlib.sha256).hexdigest()
-    return f"{value}.{sig}"
+def _derive_key():
+    """Derive a 32-byte key from SECRET_KEY for XOR encryption."""
+    return hashlib.sha256(SECRET_KEY.encode()).digest()
 
 
-def verify_signed_value(signed):
-    """Verify and extract value from signed cookie. Returns value or None."""
-    if not signed or "." not in signed:
+def encrypt_value(plaintext):
+    """Encrypt + HMAC sign a string. Returns base64 string."""
+    key = _derive_key()
+    plainbytes = plaintext.encode("utf-8")
+    # XOR encrypt with repeating key
+    encrypted = bytes(b ^ key[i % len(key)] for i, b in enumerate(plainbytes))
+    payload = base64.urlsafe_b64encode(encrypted).decode()
+    sig = hmac.new(key, payload.encode(), hashlib.sha256).hexdigest()
+    return f"{payload}.{sig}"
+
+
+def decrypt_value(token):
+    """Verify HMAC and decrypt. Returns plaintext or None."""
+    if not token or "." not in token:
         return None
-    value, sig = signed.rsplit(".", 1)
-    expected = hmac.new(SECRET_KEY.encode(), value.encode(), hashlib.sha256).hexdigest()
-    if hmac.compare_digest(sig, expected):
-        return value
-    return None
+    payload, sig = token.rsplit(".", 1)
+    key = _derive_key()
+    expected = hmac.new(key, payload.encode(), hashlib.sha256).hexdigest()
+    if not hmac.compare_digest(sig, expected):
+        return None
+    try:
+        encrypted = base64.urlsafe_b64decode(payload)
+        plainbytes = bytes(b ^ key[i % len(key)] for i, b in enumerate(encrypted))
+        return plainbytes.decode("utf-8")
+    except Exception:
+        return None
 
 
 def dexcom_request(endpoint, payload):
@@ -120,14 +137,26 @@ def fetch_readings(dexcom_sid, minutes=43200, max_count=50000):
     return readings
 
 
-def get_dexcom_sid(handler):
-    """Extract and verify the Dexcom session ID from signed cookie."""
+def get_session_data(handler):
+    """Extract and decrypt session data from cookie. Returns dict or None."""
     cookie_header = handler.headers.get("Cookie", "")
     cookie = SimpleCookie()
     cookie.load(cookie_header)
-    if "session" in cookie:
-        return verify_signed_value(cookie["session"].value)
-    return None
+    if "session" not in cookie:
+        return None
+    plaintext = decrypt_value(cookie["session"].value)
+    if not plaintext:
+        return None
+    try:
+        return json.loads(plaintext)
+    except (json.JSONDecodeError, ValueError):
+        return None
+
+
+def make_session_cookie(username, password, dexcom_sid):
+    """Create an encrypted cookie value containing session data."""
+    data = json.dumps({"u": username, "p": password, "sid": dexcom_sid})
+    return encrypt_value(data)
 
 
 class DashboardHandler(SimpleHTTPRequestHandler):
@@ -171,17 +200,17 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             if "@" not in username:
                 username = re.sub(r"[^\d+]", "", username)
 
-            # Authenticate with Dexcom — credentials used here only, never stored
+            # Authenticate with Dexcom
             dexcom_sid = dexcom_login(username, password)
 
-            # Store Dexcom session ID in a signed cookie — no server-side session needed
-            signed = sign_value(dexcom_sid)
+            # Store encrypted credentials + session ID in cookie
+            cookie_val = make_session_cookie(username, password, dexcom_sid)
 
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.send_header(
                 "Set-Cookie",
-                f"session={signed}; Path=/; HttpOnly; SameSite=Strict; Max-Age={COOKIE_MAX_AGE}",
+                f"session={cookie_val}; Path=/; HttpOnly; SameSite=Strict; Max-Age={COOKIE_MAX_AGE}",
             )
             self.end_headers()
             self.wfile.write(json.dumps({"ok": True}).encode("utf-8"))
@@ -204,31 +233,53 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         self.wfile.write(json.dumps({"ok": True}).encode("utf-8"))
 
     def handle_api_status(self):
-        dexcom_sid = get_dexcom_sid(self)
-        self.send_json(200, {"authenticated": dexcom_sid is not None})
+        session = get_session_data(self)
+        self.send_json(200, {"authenticated": session is not None})
 
     def handle_api_readings(self):
-        dexcom_sid = get_dexcom_sid(self)
-        if not dexcom_sid:
+        session = get_session_data(self)
+        if not session:
             self.send_json(401, {"error": "Not logged in"})
             return
+
+        dexcom_sid = session["sid"]
+        username = session["u"]
+        password = session["p"]
 
         try:
             readings = fetch_readings(dexcom_sid)
             self.send_json(200, readings)
         except urllib.error.HTTPError as e:
             if e.code == 500:
-                # Dexcom session expired — clear cookie, user needs to re-login
-                self.send_response(401)
-                self.send_header("Content-Type", "application/json")
-                self.send_header(
-                    "Set-Cookie",
-                    "session=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0",
-                )
-                self.end_headers()
-                self.wfile.write(
-                    json.dumps({"error": "Dexcom session expired. Please log in again."}).encode("utf-8")
-                )
+                # Dexcom session expired — auto re-authenticate
+                try:
+                    new_sid = dexcom_login(username, password)
+                    # Clear stale cache
+                    _readings_cache.pop(dexcom_sid, None)
+                    readings = fetch_readings(new_sid)
+
+                    # Update cookie with new session ID
+                    cookie_val = make_session_cookie(username, password, new_sid)
+                    self.send_response(200)
+                    self.send_header("Content-Type", "application/json")
+                    self.send_header(
+                        "Set-Cookie",
+                        f"session={cookie_val}; Path=/; HttpOnly; SameSite=Strict; Max-Age={COOKIE_MAX_AGE}",
+                    )
+                    self.end_headers()
+                    self.wfile.write(json.dumps(readings).encode("utf-8"))
+                except Exception:
+                    # Re-auth failed — credentials may have changed, force re-login
+                    self.send_response(401)
+                    self.send_header("Content-Type", "application/json")
+                    self.send_header(
+                        "Set-Cookie",
+                        "session=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0",
+                    )
+                    self.end_headers()
+                    self.wfile.write(
+                        json.dumps({"error": "Session expired and re-login failed. Please sign in again."}).encode("utf-8")
+                    )
             else:
                 self.send_json(500, {"error": f"Dexcom API error: {e.code}"})
         except Exception as e:
@@ -254,9 +305,9 @@ def main():
     print("  Oh My Sugar")
     print("=" * 60)
     print()
-    print("  Users log in with their own Dexcom credentials")
-    print("  via the browser. No credentials stored on disk.")
-    print("  Sessions persist in signed cookies (7-day expiry).")
+    print("  Auto re-authentication enabled (30-day sessions)")
+    print("  Credentials encrypted in HttpOnly cookies")
+    print("  Never stored on disk or logged")
     print()
 
     if os.environ.get("SECRET_KEY"):
