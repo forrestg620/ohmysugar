@@ -7,6 +7,7 @@ Credentials are held only in server memory, per-session, and never logged or sto
 
 import json
 import os
+import re
 import secrets
 import sys
 import urllib.request
@@ -158,6 +159,10 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             if not username or not password:
                 self.send_json(400, {"error": "Username and password are required."})
                 return
+
+            # If it looks like a phone number (no @), normalize to digits only
+            if "@" not in username:
+                username = re.sub(r"[^\d+]", "", username)
 
             # Authenticate with Dexcom — credentials are used here only, not stored
             dexcom_sid = dexcom_login(username, password)
