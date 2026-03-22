@@ -8,17 +8,17 @@
 <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
 <style>
   :root {
-    --bg: #0f1117;
-    --card: #1a1d27;
-    --border: #2a2d3a;
-    --text: #e4e4e7;
-    --muted: #9ca3af;
-    --green: #22c55e;
-    --yellow: #eab308;
-    --red: #ef4444;
-    --orange: #f97316;
-    --blue: #3b82f6;
-    --purple: #a855f7;
+    --bg: #F7F5F0;
+    --card: #FFFFFF;
+    --border: #DDD8CC;
+    --text: #3D4F3E;
+    --muted: #8A9B7E;
+    --green: #6B9E7A;
+    --yellow: #D4A94E;
+    --red: #D4836B;
+    --orange: #C8845A;
+    --blue: #6B9E7A;
+    --purple: #6B9E7A;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
@@ -58,17 +58,17 @@
   table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
   th { text-align: left; color: var(--muted); font-weight: 500; padding: 8px 10px; border-bottom: 1px solid var(--border); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; }
   td { padding: 8px 10px; border-bottom: 1px solid var(--border); }
-  tr:hover td { background: rgba(255,255,255,0.02); }
+  tr:hover td { background: rgba(107,158,122,0.05); }
   .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.72rem; font-weight: 600; }
-  .badge-green { background: rgba(34,197,94,0.15); color: var(--green); }
-  .badge-yellow { background: rgba(234,179,8,0.15); color: var(--yellow); }
-  .badge-red { background: rgba(239,68,68,0.15); color: var(--red); }
+  .badge-green { background: #EAF2E4; color: var(--green); }
+  .badge-yellow { background: #F5EDD4; color: var(--yellow); }
+  .badge-red { background: #F5E0D8; color: var(--red); }
   .loading { text-align: center; padding: 60px; color: var(--muted); }
-  .loading .spinner { display: inline-block; width: 30px; height: 30px; border: 3px solid var(--border); border-top-color: var(--blue); border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 12px; }
+  .loading .spinner { display: inline-block; width: 30px; height: 30px; border: 3px solid var(--border); border-top-color: #6B9E7A; border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 12px; }
   @keyframes spin { to { transform: rotate(360deg); } }
   .ai-summary {
-    background: linear-gradient(135deg, #1a1d27 0%, #1e2235 100%);
-    border: 1px solid #2d3555;
+    background: linear-gradient(135deg, #EAF2E4 0%, #F7F5F0 100%);
+    border: 1px solid #CDD8C2;
     border-radius: 12px;
     padding: 20px 24px;
     margin-bottom: 16px;
@@ -87,9 +87,9 @@
   .ai-text { font-size: 0.88rem; line-height: 1.55; color: var(--text); }
   .ai-text li { margin-bottom: 4px; margin-left: 16px; }
   .ai-tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.72rem; font-weight: 600; margin-right: 6px; }
-  .ai-tag-good { background: rgba(34,197,94,0.12); color: var(--green); }
-  .ai-tag-warn { background: rgba(234,179,8,0.12); color: var(--yellow); }
-  .ai-tag-alert { background: rgba(239,68,68,0.12); color: var(--red); }
+  .ai-tag-good { background: #EAF2E4; color: var(--green); }
+  .ai-tag-warn { background: #F5EDD4; color: var(--yellow); }
+  .ai-tag-alert { background: #F5E0D8; color: var(--red); }
   @media (max-width: 768px) {
     .grid-2, .grid-3 { grid-template-columns: 1fr; }
     .grid-4 { grid-template-columns: repeat(2, 1fr); }
@@ -100,11 +100,21 @@
 <body>
 
 <div style="display:flex;justify-content:space-between;align-items:center">
-  <div>
-    <h1>Oh My Sugar</h1>
-    <p class="subtitle" id="dateRange">Loading data...</p>
+  <div style="display:flex;align-items:center;gap:12px">
+    <svg width="40" height="40" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" fill="none" stroke="#6B9E7A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="60" cy="16" r="6"/><path d="M60 10 Q65 4 69 8"/>
+      <path d="M26 52 Q30 30 44 28 Q52 24 60 30 Q68 24 76 28 Q90 30 94 52"/>
+      <path d="M26 52 L34 90 L86 90 L94 52 Z"/><path d="M30 62 L90 62" stroke-width="1.5"/>
+      <circle cx="48" cy="74" r="2.5" fill="#6B9E7A" stroke="none"/>
+      <circle cx="72" cy="74" r="2.5" fill="#6B9E7A" stroke="none"/>
+      <path d="M57 81 Q60 84 63 81"/>
+    </svg>
+    <div>
+      <h1>Oh My Sugar</h1>
+      <p class="subtitle" id="dateRange">Loading data...</p>
+    </div>
   </div>
-  <button id="logoutBtn" onclick="logout()" style="background:#2a2d3a;color:#9ca3af;border:none;padding:8px 16px;border-radius:8px;font-size:0.82rem;cursor:pointer;display:none">Sign Out</button>
+  <button id="logoutBtn" onclick="logout()" style="background:#EAF2E4;color:#6B9E7A;border:1px solid #CDD8C2;padding:8px 16px;border-radius:8px;font-size:0.82rem;cursor:pointer;display:none">Sign Out</button>
 </div>
 
 <div id="loading" class="loading">
@@ -116,8 +126,17 @@
 
 <!-- AI Summary -->
 <div class="ai-summary" id="aiSummary">
-  <h2><span class="ai-spark">&#9733;</span> Prof. Glucose's Suggestions <span class="ai-tag ai-tag-good" style="font-size:0.65rem;vertical-align:middle">&#9733; AI Assistant</span></h2>
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+    <h2 style="margin-bottom:0"><span class="ai-spark">&#9733;</span> Prof. Glucose's Suggestions <span class="ai-tag ai-tag-good" style="font-size:0.65rem;vertical-align:middle">&#9733; AI Assistant</span></h2>
+    <select id="dayPicker" style="padding:6px 12px;border-radius:8px;border:1px solid #CDD8C2;background:#FFFFFF;color:#3D4F3E;font-size:0.85rem;cursor:pointer;outline:none"></select>
+  </div>
   <div id="aiContent">Analyzing your glucose data...</div>
+  <div style="margin-top:16px">
+    <div style="font-size:0.75rem;text-transform:uppercase;letter-spacing:0.05em;color:#6B9E7A;margin-bottom:8px;font-weight:600">Daily Glucose Curve</div>
+    <div class="chart-container" style="height:200px">
+      <canvas id="dailyDetailChart"></canvas>
+    </div>
+  </div>
 </div>
 
 <!-- Summary Stats -->
@@ -278,8 +297,9 @@ function groupByDate(readings) {
 }
 
 function chartDefaults() {
-  Chart.defaults.color = '#9ca3af';
-  Chart.defaults.borderColor = '#2a2d3a';
+  Chart.defaults.color = '#8A9B7E';
+  Chart.defaults.borderColor = '#DDD8CC';
+  Chart.defaults.backgroundColor = '#F7F5F0';
   Chart.defaults.font.family = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
   Chart.defaults.font.size = 11;
 }
@@ -302,11 +322,11 @@ function renderStats(readings) {
 
   // TIR bar
   const ranges = [
-    { key: 'veryLow', label: 'Very Low <54', color: '#991b1b', pct: tir.veryLow },
-    { key: 'low', label: 'Low 54–69', color: '#ef4444', pct: tir.low },
-    { key: 'inRange', label: 'In Range 70–180', color: '#22c55e', pct: tir.inRange },
-    { key: 'high', label: 'High 181–250', color: '#eab308', pct: tir.high },
-    { key: 'veryHigh', label: 'Very High >250', color: '#f97316', pct: tir.veryHigh },
+    { key: 'veryLow', label: 'Very Low <54', color: '#B85C4A', pct: tir.veryLow },
+    { key: 'low', label: 'Low 54–69', color: '#D4836B', pct: tir.low },
+    { key: 'inRange', label: 'In Range 70–180', color: '#6B9E7A', pct: tir.inRange },
+    { key: 'high', label: 'High 181–250', color: '#D4A94E', pct: tir.high },
+    { key: 'veryHigh', label: 'Very High >250', color: '#C8845A', pct: tir.veryHigh },
   ];
   const bar = document.getElementById('tirBar');
   const legend = document.getElementById('tirLegend');
@@ -344,12 +364,12 @@ function renderTrendChart(readings) {
     data: {
       datasets: [{
         data: data.map(r => ({ x: r.time, y: r.value })),
-        borderColor: '#3b82f6',
+        borderColor: '#6B9E7A',
         borderWidth: 1.5,
         pointRadius: spanHours < 24 ? 3 : 0,
         pointHoverRadius: 6,
-        pointBackgroundColor: '#3b82f6',
-        pointBorderColor: '#1a1d27',
+        pointBackgroundColor: '#6B9E7A',
+        pointBorderColor: '#FFFFFF',
         pointBorderWidth: 2,
         fill: false,
         tension: 0.2,
@@ -366,8 +386,8 @@ function renderTrendChart(readings) {
       plugins: {
         legend: { display: false },
         tooltip: {
-          backgroundColor: '#1e2130',
-          borderColor: '#3b82f6',
+          backgroundColor: '#FFFFFF',
+          borderColor: '#6B9E7A',
           borderWidth: 1,
           titleFont: { size: 13 },
           bodyFont: { size: 13 },
@@ -401,13 +421,13 @@ function renderTrendChart(readings) {
           type: 'time',
           time: { unit: timeUnit, displayFormats: { minute: timeFmt, hour: timeFmt, day: timeFmt } },
           grid: { display: false },
-          ticks: { color: '#9ca3af', font: { size: 11 }, maxRotation: 0 }
+          ticks: { color: '#8A9B7E', font: { size: 11 }, maxRotation: 0 }
         },
         y: {
           min: 40,
           max: 350,
-          grid: { color: '#2a2d3a' },
-          ticks: { color: '#9ca3af' }
+          grid: { color: '#DDD8CC' },
+          ticks: { color: '#8A9B7E' }
         }
       },
     },
@@ -419,10 +439,10 @@ function renderTrendChart(readings) {
           const top = y.getPixelForValue(RANGE_HIGH);
           const bottom = y.getPixelForValue(RANGE_LOW);
           ctx.save();
-          ctx.fillStyle = 'rgba(34, 197, 94, 0.06)';
+          ctx.fillStyle = 'rgba(107, 158, 122, 0.08)';
           ctx.fillRect(chartArea.left, top, chartArea.width, bottom - top);
           // Draw range boundary lines
-          ctx.strokeStyle = 'rgba(34, 197, 94, 0.3)';
+          ctx.strokeStyle = 'rgba(107, 158, 122, 0.3)';
           ctx.lineWidth = 1;
           ctx.setLineDash([4, 4]);
           ctx.beginPath();
@@ -441,7 +461,7 @@ function renderTrendChart(readings) {
             const { ctx, chartArea } = chart;
             const x = chart.tooltip.getActiveElements()[0].element.x;
             ctx.save();
-            ctx.strokeStyle = 'rgba(156, 163, 175, 0.4)';
+            ctx.strokeStyle = 'rgba(138, 155, 126, 0.4)';
             ctx.lineWidth = 1;
             ctx.setLineDash([3, 3]);
             ctx.beginPath();
@@ -460,7 +480,7 @@ function renderDailyOverlay(readings) {
   const ctx = document.getElementById('dailyChart').getContext('2d');
   const groups = groupByDate(readings);
   const days = Object.keys(groups).sort();
-  const colors = ['#3b82f6', '#8b5cf6', '#ec4899', '#f97316', '#22c55e', '#06b6d4', '#eab308'];
+  const colors = ['#6B9E7A', '#8FB896', '#5A7E5E', '#D4A94E', '#A3C4A8', '#7B8F6B', '#C8845A'];
 
   // Show last 7 days as individual lines, rest as a grey aggregate
   const recentDays = days.slice(-7);
@@ -476,7 +496,7 @@ function renderDailyOverlay(readings) {
     }).sort((a, b) => a.x - b.x);
     datasets.push({
       data: pts,
-      borderColor: 'rgba(100,100,120,0.1)',
+      borderColor: 'rgba(138,155,126,0.15)',
       borderWidth: 1,
       pointRadius: 0,
       fill: false,
@@ -499,7 +519,7 @@ function renderDailyOverlay(readings) {
       pointRadius: 3,
       pointHoverRadius: 6,
       pointBackgroundColor: colors[i % colors.length],
-      pointBorderColor: '#1a1d27',
+      pointBorderColor: '#FFFFFF',
       pointBorderWidth: 1,
       fill: false,
       tension: 0.3,
@@ -522,8 +542,8 @@ function renderDailyOverlay(readings) {
           labels: { filter: item => !!item.text, boxWidth: 12, font: { size: 10 } }
         },
         tooltip: {
-          backgroundColor: '#1e2130',
-          borderColor: '#3b82f6',
+          backgroundColor: '#FFFFFF',
+          borderColor: '#6B9E7A',
           borderWidth: 1,
           padding: 10,
           displayColors: true,
@@ -546,7 +566,7 @@ function renderDailyOverlay(readings) {
           min: 0, max: 1440,
           ticks: {
             stepSize: 180,
-            color: '#9ca3af',
+            color: '#8A9B7E',
             callback: v => {
               const h = Math.floor(v / 60);
               return h === 0 ? '12am' : h < 12 ? `${h}am` : h === 12 ? '12pm' : `${h - 12}pm`;
@@ -554,7 +574,7 @@ function renderDailyOverlay(readings) {
           },
           grid: { display: false }
         },
-        y: { min: 40, max: 350, grid: { color: '#2a2d3a' }, ticks: { color: '#9ca3af' } }
+        y: { min: 40, max: 350, grid: { color: '#DDD8CC' }, ticks: { color: '#8A9B7E' } }
       }
     },
     plugins: [{
@@ -564,7 +584,7 @@ function renderDailyOverlay(readings) {
         const top = y.getPixelForValue(RANGE_HIGH);
         const bottom = y.getPixelForValue(RANGE_LOW);
         ctx.save();
-        ctx.fillStyle = 'rgba(34, 197, 94, 0.06)';
+        ctx.fillStyle = 'rgba(107, 158, 122, 0.08)';
         ctx.fillRect(chartArea.left, top, chartArea.width, bottom - top);
         ctx.restore();
       }
@@ -592,11 +612,11 @@ function renderDistribution(readings) {
         data: buckets.map(b => b.count),
         backgroundColor: buckets.map(b => {
           const mid = (b.min + b.max) / 2;
-          if (mid < VERY_LOW) return '#991b1b';
-          if (mid < RANGE_LOW) return '#ef4444';
-          if (mid <= RANGE_HIGH) return '#22c55e';
-          if (mid <= VERY_HIGH) return '#eab308';
-          return '#f97316';
+          if (mid < VERY_LOW) return '#B85C4A';
+          if (mid < RANGE_LOW) return '#D4836B';
+          if (mid <= RANGE_HIGH) return '#6B9E7A';
+          if (mid <= VERY_HIGH) return '#D4A94E';
+          return '#C8845A';
         }),
         borderWidth: 0,
         borderRadius: 2,
@@ -611,7 +631,7 @@ function renderDistribution(readings) {
           grid: { display: false },
           ticks: { maxTicksLimit: 10, callback: v => v + '' }
         },
-        y: { grid: { color: '#2a2d3a' }, ticks: { display: false } }
+        y: { grid: { color: '#DDD8CC' }, ticks: { display: false } }
       }
     }
   });
@@ -647,7 +667,7 @@ function renderHourlyAvg(readings) {
           label: '90th %ile',
           data: p90,
           borderColor: 'transparent',
-          backgroundColor: 'rgba(59,130,246,0.1)',
+          backgroundColor: 'rgba(107,158,122,0.12)',
           fill: '+1',
           pointRadius: 0,
           tension: 0.4,
@@ -655,7 +675,7 @@ function renderHourlyAvg(readings) {
         {
           label: 'Average',
           data: avgs,
-          borderColor: '#3b82f6',
+          borderColor: '#6B9E7A',
           borderWidth: 2,
           pointRadius: 0,
           fill: false,
@@ -680,7 +700,7 @@ function renderHourlyAvg(readings) {
       },
       scales: {
         x: { grid: { display: false } },
-        y: { min: 40, max: 300, grid: { color: '#2a2d3a' } }
+        y: { min: 40, max: 300, grid: { color: '#DDD8CC' } }
       }
     },
     plugins: [{
@@ -690,7 +710,7 @@ function renderHourlyAvg(readings) {
         const top = y.getPixelForValue(RANGE_HIGH);
         const bottom = y.getPixelForValue(RANGE_LOW);
         ctx.save();
-        ctx.fillStyle = 'rgba(34, 197, 94, 0.06)';
+        ctx.fillStyle = 'rgba(107, 158, 122, 0.08)';
         ctx.fillRect(chartArea.left, top, chartArea.width, bottom - top);
         ctx.restore();
       }
@@ -717,9 +737,9 @@ function renderDailyAvgChart(readings) {
       datasets: [{
         data: avgs,
         backgroundColor: avgs.map(v => {
-          if (v < RANGE_LOW) return '#ef4444';
-          if (v <= RANGE_HIGH) return '#22c55e';
-          return '#eab308';
+          if (v < RANGE_LOW) return '#D4836B';
+          if (v <= RANGE_HIGH) return '#6B9E7A';
+          return '#D4A94E';
         }),
         borderWidth: 0,
         borderRadius: 3,
@@ -731,7 +751,7 @@ function renderDailyAvgChart(readings) {
       plugins: { legend: { display: false } },
       scales: {
         x: { grid: { display: false }, ticks: { maxTicksLimit: 15, font: { size: 9 } } },
-        y: { min: 60, grid: { color: '#2a2d3a' } }
+        y: { min: 60, grid: { color: '#DDD8CC' } }
       }
     }
   });
@@ -770,12 +790,120 @@ function renderDailyTable(readings) {
   }).join('');
 }
 
-function renderAISummary(readings) {
-  const now = new Date();
-  const todayKey = now.toLocaleDateString('en-CA');
-  const today = readings.filter(r => r.time.toLocaleDateString('en-CA') === todayKey);
-  const src = today.length >= 3 ? today : readings; // fallback to all data if today has few readings
-  const isToday = today.length >= 3;
+let _allReadings = null;
+let _dailyDetailChart = null;
+
+function populateDayPicker(readings) {
+  const groups = groupByDate(readings);
+  const days = Object.keys(groups).sort().reverse();
+  const picker = document.getElementById('dayPicker');
+  const todayKey = new Date().toLocaleDateString('en-CA');
+
+  picker.innerHTML = `<option value="all">All Data</option>` + days.map(day => {
+    const dt = new Date(day + 'T12:00:00');
+    const label = day === todayKey ? 'Today' : dt.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    const selected = day === todayKey ? ' selected' : '';
+    return `<option value="${day}"${selected}>${label} (${groups[day].length})</option>`;
+  }).join('');
+
+  picker.onchange = () => renderAISummary(_allReadings, picker.value);
+}
+
+function renderDailyDetailChart(src) {
+  const ctx = document.getElementById('dailyDetailChart').getContext('2d');
+  if (_dailyDetailChart) _dailyDetailChart.destroy();
+
+  const data = src.map(r => ({ x: r.time, y: r.value }));
+  const spanMs = src.length > 1 ? src[src.length-1].time - src[0].time : 0;
+  const spanHours = spanMs / 3600000;
+  let timeUnit = 'hour', timeFmt = 'ha';
+  if (spanHours < 6) { timeUnit = 'minute'; timeFmt = 'h:mm a'; }
+  else if (spanHours > 48) { timeUnit = 'day'; timeFmt = 'MMM d'; }
+
+  _dailyDetailChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      datasets: [{
+        data: data,
+        borderColor: '#6B9E7A',
+        borderWidth: 2,
+        pointRadius: spanHours < 24 ? 3 : 1,
+        pointHoverRadius: 6,
+        pointBackgroundColor: '#6B9E7A',
+        pointBorderColor: '#FFFFFF',
+        pointBorderWidth: 2,
+        fill: false,
+        tension: 0.2,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'nearest', axis: 'x', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#FFFFFF',
+          borderColor: '#6B9E7A',
+          borderWidth: 1,
+          titleColor: '#3D4F3E',
+          bodyColor: '#3D4F3E',
+          padding: 10,
+          displayColors: false,
+          callbacks: {
+            title: items => new Date(items[0].parsed.x).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
+            label: item => `${item.parsed.y} mg/dL`
+          }
+        }
+      },
+      scales: {
+        x: {
+          type: 'time',
+          time: { unit: timeUnit, displayFormats: { minute: timeFmt, hour: timeFmt, day: timeFmt } },
+          grid: { display: false },
+          ticks: { color: '#8A9B7E', maxRotation: 0 }
+        },
+        y: { min: 40, max: 300, grid: { color: '#DDD8CC' }, ticks: { color: '#8A9B7E' } }
+      }
+    },
+    plugins: [{
+      id: 'rangeHighlightDaily',
+      beforeDraw(chart) {
+        const { ctx, chartArea, scales: { y } } = chart;
+        const top = y.getPixelForValue(RANGE_HIGH);
+        const bottom = y.getPixelForValue(RANGE_LOW);
+        ctx.save();
+        ctx.fillStyle = 'rgba(107, 158, 122, 0.08)';
+        ctx.fillRect(chartArea.left, top, chartArea.width, bottom - top);
+        ctx.strokeStyle = 'rgba(107, 158, 122, 0.3)';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        ctx.moveTo(chartArea.left, top);
+        ctx.lineTo(chartArea.right, top);
+        ctx.moveTo(chartArea.left, bottom);
+        ctx.lineTo(chartArea.right, bottom);
+        ctx.stroke();
+        ctx.restore();
+      }
+    }]
+  });
+}
+
+function renderAISummary(readings, selectedDay) {
+  _allReadings = readings;
+  const todayKey = new Date().toLocaleDateString('en-CA');
+  const dayKey = selectedDay || todayKey;
+
+  let src, isToday;
+  if (dayKey === 'all') {
+    src = readings;
+    isToday = false;
+  } else {
+    const dayReadings = readings.filter(r => r.time.toLocaleDateString('en-CA') === dayKey);
+    src = dayReadings.length >= 3 ? dayReadings : readings;
+    isToday = dayReadings.length >= 3;
+  }
   const vals = src.map(r => r.value);
   const stats = calcStats(vals);
   const tir = tirBreakdown(vals);
@@ -869,7 +997,17 @@ function renderAISummary(readings) {
     statusTag = 'Needs Attention'; statusClass = 'ai-tag-alert';
   }
 
-  const period = isToday ? 'Today' : 'Recent period';
+  let period;
+  if (dayKey === 'all') {
+    period = 'All data';
+  } else if (dayKey === todayKey && isToday) {
+    period = 'Today';
+  } else if (isToday) {
+    const dt = new Date(dayKey + 'T12:00:00');
+    period = dt.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+  } else {
+    period = 'All data (selected day has too few readings)';
+  }
 
   // Build narrative
   let narrative = `<span class="ai-tag ${statusClass}">${statusTag}</span> `;
@@ -942,7 +1080,7 @@ function renderAISummary(readings) {
 
   const html = `
     <div class="ai-section">
-      <div class="ai-section-title">Today's Analysis</div>
+      <div class="ai-section-title">${dayKey === 'all' ? 'Overall' : period} Analysis</div>
       <div class="ai-text">${narrative}</div>
     </div>
     <div class="ai-section">
@@ -955,6 +1093,7 @@ function renderAISummary(readings) {
     </div>
   `;
   document.getElementById('aiContent').innerHTML = html;
+  renderDailyDetailChart(src);
 }
 
 async function logout() {
@@ -989,6 +1128,7 @@ async function init() {
     document.getElementById('loading').style.display = 'none';
     document.getElementById('dashboard').style.display = 'block';
 
+    populateDayPicker(readings);
     renderAISummary(readings);
     renderStats(readings);
     renderTrendChart(readings);
@@ -999,8 +1139,8 @@ async function init() {
     renderDailyTable(readings);
   } catch (err) {
     document.getElementById('loading').innerHTML =
-      `<div style="color:#ef4444">Error: ${err.message}</div>
-       <div style="margin-top:12px;color:#9ca3af">Make sure the server is running with valid Dexcom credentials.</div>`;
+      `<div style="color:#D4836B">Error: ${err.message}</div>
+       <div style="margin-top:12px;color:#8A9B7E">Make sure the server is running with valid Dexcom credentials.</div>`;
   }
 }
 
