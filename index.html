@@ -111,7 +111,7 @@
     </svg>
     <div>
       <h1>Oh My Sugar</h1>
-      <p class="subtitle" id="dateRange">Loading data...</p>
+      <p class="subtitle" id="dateRange"></p>
     </div>
   </div>
   <button id="logoutBtn" onclick="logout()" style="background:#EAF2E4;color:#6B9E7A;border:1px solid #CDD8C2;padding:8px 16px;border-radius:8px;font-size:0.82rem;cursor:pointer;display:none">Sign Out</button>
@@ -337,12 +337,6 @@ function renderStats(readings) {
     `<span><span class="tir-dot" style="background:${r.color}"></span>${r.label}: ${r.pct.toFixed(1)}%</span>`
   ).join('');
 
-  // Date range
-  const first = readings[0].time;
-  const last = readings[readings.length - 1].time;
-  const days = Math.round((last - first) / 86400000);
-  document.getElementById('dateRange').textContent =
-    `${first.toLocaleDateString()} – ${last.toLocaleDateString()} · ${days} days · ${stats.count.toLocaleString()} readings`;
 }
 
 function renderTrendChart(readings) {
