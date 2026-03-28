@@ -1069,28 +1069,24 @@ function renderAISummary(readings, selectedDay) {
     events += `<li>No significant glucose spikes, drops, or extended out-of-range periods detected. Your levels have been remarkably stable.</li>`;
   }
 
-  // Build food suggestions based on patterns
-  let suggestions = '';
-  if (spikes.length > 0 || (tir.high + tir.veryHigh) > 15) {
-    suggestions += `<li><strong>Reduce post-meal spikes</strong>: Pair carbs with protein, fat, or fiber (e.g., bread with avocado instead of bread alone). Eat vegetables first, then protein, then carbs.</li>`;
-    suggestions += `<li><strong>Watch portion sizes</strong> of rice, pasta, bread, and sweetened drinks — these are the most common spike triggers.</li>`;
-    suggestions += `<li><strong>Take a 10–15 min walk</strong> after meals — even light movement significantly blunts post-meal glucose rises.</li>`;
+  // Build one actionable tip based on the day's specific data
+  let tip = '';
+  if (spikes.length > 0) {
+    const worst = spikes.reduce((a, b) => a.rise > b.rise ? a : b);
+    tip = `Your biggest spike was <strong>+${worst.rise} mg/dL at ${fmtTime(worst.time)}</strong>. Try to recall what you ate 30–60 min before — consider a lower-carb swap or adding protein/fiber next time.`;
+  } else if ((tir.veryLow + tir.low) > 3) {
+    const lowCount = Math.round(vals.filter(v => v < RANGE_LOW).length / vals.length * 100);
+    tip = `You were low <strong>${lowCount}% of the time</strong>. Consider adding a small snack (nuts, cheese) before the times you tend to dip.`;
+  } else if (peakHour !== null && hourAvgs[peakHour] > 150) {
+    tip = `Your glucose peaks around <strong>${fmtHour(peakHour)}</strong> (avg ${Math.round(hourAvgs[peakHour])}). What do you eat 1–2h before? That meal is worth experimenting with.`;
+  } else if (stats.std > 36) {
+    tip = `Your glucose swung a lot today (SD ${stats.std}). Eating at more consistent times and favoring whole grains over refined carbs can help smooth things out.`;
+  } else if (tir.inRange >= 85) {
+    const streak = `${tir.inRange.toFixed(0)}% in range`;
+    tip = `<strong>${streak}</strong> — your eating pattern is working well today. Keep it going!`;
+  } else {
+    tip = `Solid day overall. Keep an eye on what you eat before your highest readings to find patterns.`;
   }
-  if ((tir.veryLow + tir.low) > 3) {
-    suggestions += `<li><strong>Prevent lows</strong>: Don't skip meals. Keep a small snack handy (nuts, cheese, fruit). If exercising, eat a small carb snack beforehand.</li>`;
-  }
-  if (stats.std > 36) {
-    suggestions += `<li><strong>Stabilize your routine</strong>: Eating at consistent times each day helps reduce glucose swings. Aim for meals every 4–5 hours.</li>`;
-    suggestions += `<li><strong>Favor low-glycemic foods</strong>: Swap white rice for brown, white bread for whole grain, juice for whole fruit.</li>`;
-  }
-  if (tir.inRange >= 85 && spikes.length === 0) {
-    suggestions += `<li><strong>Keep it up!</strong> Your current eating pattern is working well. Continue monitoring to spot any changes over time.</li>`;
-  }
-  if (peakHour !== null && hourAvgs[peakHour] > 150) {
-    const mealHour = (peakHour - 1 + 24) % 24;
-    suggestions += `<li><strong>Focus on your ${fmtHour(mealHour)} meal</strong>: Since glucose peaks around ${fmtHour(peakHour)}, consider logging what you eat at this time and experimenting with lower-carb alternatives.</li>`;
-  }
-  suggestions += `<li><strong>Food journal tip</strong>: Note what you eat and check your glucose 1–2 hours later. Over a week, patterns will emerge showing which foods cause the biggest swings for <em>your</em> body.</li>`;
 
   const html = `
     <div class="ai-section">
@@ -1102,8 +1098,8 @@ function renderAISummary(readings, selectedDay) {
       <ul class="ai-text">${events}</ul>
     </div>
     <div class="ai-section">
-      <div class="ai-section-title">Food & Lifestyle Suggestions</div>
-      <ul class="ai-text">${suggestions}</ul>
+      <div class="ai-section-title">Actionable Tip</div>
+      <div class="ai-text">${tip}</div>
     </div>
   `;
   document.getElementById('aiContent').innerHTML = html;
