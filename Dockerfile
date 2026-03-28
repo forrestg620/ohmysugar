@@ -3,4 +3,4 @@ WORKDIR /app
 COPY server.py index.html login.html favicon.svg ./
 ENV PORT=8080
 EXPOSE 8080
-CMD ["python3", "server.py"]
+CMD ["python3", "-u", "server.py"]

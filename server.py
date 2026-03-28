@@ -157,8 +157,10 @@ def load_stored_readings(username):
             "GET",
             f"readings?user_hash=eq.{uhash}&select=raw&order=wt.desc&limit=26000",
         )
+        print(f"[load] Loaded {len(rows)} readings from Supabase for {uhash}")
         return [row["raw"] for row in rows]
-    except Exception:
+    except Exception as e:
+        print(f"[load] Supabase error: {e}")
         return []
 
 
