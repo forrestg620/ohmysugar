@@ -36,63 +36,32 @@
     border: 1px solid var(--border);
     border-radius: 16px;
     padding: 36px 32px;
-  }
-  .logo {
     text-align: center;
-    margin-bottom: 24px;
   }
+  .logo { margin-bottom: 24px; }
   .logo svg { margin-bottom: 12px; }
-  .logo h1 {
-    font-size: 1.3rem;
-    margin-bottom: 6px;
-  }
-  .logo p {
-    color: var(--muted);
-    font-size: 0.85rem;
-  }
-  .form-group {
-    margin-bottom: 16px;
-  }
-  label {
-    display: block;
-    font-size: 0.8rem;
-    color: var(--muted);
-    margin-bottom: 6px;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-  }
-  input {
+  .logo h1 { font-size: 1.3rem; margin-bottom: 6px; }
+  .logo p { color: var(--muted); font-size: 0.85rem; }
+  .connect-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
     width: 100%;
-    padding: 10px 14px;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    color: var(--text);
-    font-size: 0.95rem;
-    outline: none;
-    transition: border-color 0.2s;
-  }
-  input:focus {
-    border-color: var(--primary);
-  }
-  button {
-    width: 100%;
-    padding: 12px;
+    padding: 14px 24px;
     background: var(--primary);
     color: white;
     border: none;
-    border-radius: 8px;
-    font-size: 0.95rem;
+    border-radius: 10px;
+    font-size: 1rem;
     font-weight: 600;
     cursor: pointer;
     transition: background 0.2s;
-    margin-top: 8px;
+    text-decoration: none;
+    margin: 8px 0;
   }
-  button:hover { background: var(--primary-hover); }
-  button:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-  }
+  .connect-btn:hover { background: var(--primary-hover); }
+  .connect-btn svg { flex-shrink: 0; }
   .error {
     background: #F5E0D8;
     border: 1px solid rgba(212, 131, 107, 0.3);
@@ -109,6 +78,7 @@
     background: #EAF2E4;
     border: 1px solid #CDD8C2;
     border-radius: 8px;
+    text-align: left;
   }
   .privacy h3 {
     font-size: 0.78rem;
@@ -135,7 +105,6 @@
     color: var(--muted);
     line-height: 1.6;
   }
-  .help a { color: var(--primary); text-decoration: none; }
 </style>
 </head>
 <body>
@@ -152,74 +121,46 @@
         <path d="M57 81 Q60 84 63 81"/>
       </svg>
       <h1>Oh My Sugar</h1>
-      <p>Sign in with your Dexcom account</p>
+      <p>Your Dexcom G7 glucose dashboard</p>
     </div>
 
     <div class="error" id="error"></div>
 
-    <form id="loginForm">
-      <div class="form-group">
-        <label for="username">Dexcom Email or Phone Number</label>
-        <input type="text" id="username" autocomplete="username" placeholder="you@example.com or (555) 123-4567" required>
-      </div>
-      <div class="form-group">
-        <label for="password">Dexcom Password</label>
-        <input type="password" id="password" autocomplete="current-password" placeholder="Your Dexcom password" required>
-      </div>
-      <button type="submit" id="submitBtn">Sign In</button>
-    </form>
+    <a href="/oauth/login" class="connect-btn">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/>
+        <polyline points="10 17 15 12 10 7"/>
+        <line x1="15" y1="12" x2="3" y2="12"/>
+      </svg>
+      Connect with Dexcom
+    </a>
 
     <div class="privacy">
       <h3>Your privacy</h3>
       <ul>
-        <li>Credentials are sent only to Dexcom's servers</li>
-        <li>Nothing is stored on disk — memory-only sessions</li>
+        <li>You sign in on Dexcom's official site — we never see your password</li>
+        <li>Only glucose data is accessed — nothing else</li>
         <li>Sessions last 30 days with auto-renewal</li>
-        <li>You can log out at any time</li>
+        <li>You can disconnect at any time</li>
       </ul>
     </div>
   </div>
 
   <div class="help">
-    Requires Dexcom Share enabled in the G7 app.<br>
-    G7 App → Settings → Share → Enable, then add a follower.
+    Works with Dexcom G7 and G6.<br>
+    Up to 90 days of glucose history.
   </div>
 </div>
 
 <script>
-document.getElementById('loginForm').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const btn = document.getElementById('submitBtn');
-  const errorEl = document.getElementById('error');
-  const username = document.getElementById('username').value.trim();
-  const password = document.getElementById('password').value;
-
-  errorEl.style.display = 'none';
-  btn.disabled = true;
-  btn.textContent = 'Signing in...';
-
-  try {
-    const res = await fetch('/api/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password }),
-    });
-    const data = await res.json();
-
-    if (res.ok) {
-      window.location.href = '/';
-    } else {
-      errorEl.textContent = data.error || 'Login failed';
-      errorEl.style.display = 'block';
-    }
-  } catch (err) {
-    errorEl.textContent = 'Connection error. Is the server running?';
-    errorEl.style.display = 'block';
-  } finally {
-    btn.disabled = false;
-    btn.textContent = 'Sign In';
-  }
-});
+// Show error from OAuth callback if present
+const params = new URLSearchParams(window.location.search);
+const error = params.get('error');
+if (error) {
+  const el = document.getElementById('error');
+  el.textContent = decodeURIComponent(error);
+  el.style.display = 'block';
+}
 </script>
 </body>
 </html>
