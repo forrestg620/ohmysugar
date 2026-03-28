@@ -157,6 +157,15 @@
       <canvas id="dailyDetailChart"></canvas>
     </div>
   </div>
+  <!-- Chat -->
+  <div style="margin-top:16px;border-top:1px solid #DDD8CC;padding-top:14px">
+    <div style="font-size:0.75rem;text-transform:uppercase;letter-spacing:0.05em;color:#6B9E7A;margin-bottom:8px;font-weight:600">Ask Prof. Glucose</div>
+    <div id="chatMessages" style="margin-bottom:10px;max-height:200px;overflow-y:auto"></div>
+    <div style="display:flex;gap:8px">
+      <input type="text" id="chatInput" placeholder="e.g. What should I eat for breakfast?" style="flex:1;padding:8px 12px;border:1px solid #DDD8CC;border-radius:8px;background:#F7F5F0;color:#3D4F3E;font-size:0.85rem;outline:none" onkeydown="if(event.key==='Enter')sendChat()">
+      <button onclick="sendChat()" style="padding:8px 16px;background:#6B9E7A;color:white;border:none;border-radius:8px;font-size:0.85rem;font-weight:600;cursor:pointer;white-space:nowrap">Ask</button>
+    </div>
+  </div>
 </div>
 
 <!-- Summary Stats -->
@@ -1104,6 +1113,55 @@ function renderAISummary(readings, selectedDay) {
   `;
   document.getElementById('aiContent').innerHTML = html;
   renderDailyDetailChart(src);
+}
+
+function getStatsSummary() {
+  if (!_allReadings || !_allReadings.length) return 'No data available';
+  const vals = _allReadings.map(r => r.value);
+  const stats = calcStats(vals);
+  const tir = tirBreakdown(vals);
+  const first = _allReadings[0].time;
+  const last = _allReadings[_allReadings.length - 1].time;
+  return `Readings: ${vals.length}, Period: ${first.toLocaleDateString()} to ${last.toLocaleDateString()}, ` +
+    `Avg: ${stats.avg} mg/dL, Min: ${stats.min}, Max: ${stats.max}, StdDev: ${stats.std}, ` +
+    `Time in range (70-180): ${tir.inRange.toFixed(1)}%, Low (<70): ${(tir.veryLow+tir.low).toFixed(1)}%, ` +
+    `High (>180): ${(tir.high+tir.veryHigh).toFixed(1)}%`;
+}
+
+async function sendChat() {
+  const input = document.getElementById('chatInput');
+  const messages = document.getElementById('chatMessages');
+  const question = input.value.trim();
+  if (!question) return;
+
+  // Show user message
+  messages.innerHTML += `<div style="margin-bottom:8px;text-align:right"><span style="background:#EAF2E4;padding:6px 12px;border-radius:8px;font-size:0.84rem;display:inline-block;max-width:80%">${question}</span></div>`;
+  input.value = '';
+  messages.scrollTop = messages.scrollHeight;
+
+  // Show typing indicator
+  const typingId = 'typing-' + Date.now();
+  messages.innerHTML += `<div id="${typingId}" style="margin-bottom:8px"><span style="background:#F7F5F0;border:1px solid #DDD8CC;padding:6px 12px;border-radius:8px;font-size:0.84rem;display:inline-block;color:#8A9B7E">Prof. Glucose is thinking...</span></div>`;
+  messages.scrollTop = messages.scrollHeight;
+
+  try {
+    const res = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question, stats: getStatsSummary() }),
+    });
+    const data = await res.json();
+    const el = document.getElementById(typingId);
+    if (data.answer) {
+      el.innerHTML = `<span style="background:#F7F5F0;border:1px solid #DDD8CC;padding:6px 12px;border-radius:8px;font-size:0.84rem;display:inline-block;max-width:85%;line-height:1.5"><strong style="color:#6B9E7A">Prof. Glucose:</strong> ${data.answer}</span>`;
+    } else {
+      el.innerHTML = `<span style="background:#F5E0D8;padding:6px 12px;border-radius:8px;font-size:0.84rem;display:inline-block">${data.error || 'Something went wrong'}</span>`;
+    }
+  } catch (err) {
+    const el = document.getElementById(typingId);
+    if (el) el.innerHTML = `<span style="background:#F5E0D8;padding:6px 12px;border-radius:8px;font-size:0.84rem;display:inline-block">Connection error</span>`;
+  }
+  messages.scrollTop = messages.scrollHeight;
 }
 
 async function logout() {

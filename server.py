@@ -27,6 +27,10 @@ DEXCOM_APP_ID = "d89443d2-327c-4a6f-89e5-496bbb0317db"
 # Signing/encryption key for cookies — set SECRET_KEY env var in production
 SECRET_KEY = os.environ.get("SECRET_KEY", secrets.token_hex(32))
 
+# Groq AI configuration — set GROQ_API_KEY env var
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
+GROQ_MODEL = "llama-3.3-70b-versatile"
+
 # Supabase configuration
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://fvjpxepiayldmyvlkpax.supabase.co")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ2anB4ZXBpYXlsZG15dmxrcGF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ2NzE5NjAsImV4cCI6MjA5MDI0Nzk2MH0.JZD-nkZRCWesCZOEVwFkS3js5AM3r2AE8uLv9Z-GhAQ")
@@ -280,6 +284,8 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             self.handle_api_login()
         elif self.path == "/api/logout":
             self.handle_api_logout()
+        elif self.path == "/api/chat":
+            self.handle_api_chat()
         else:
             self.send_response(404)
             self.end_headers()
@@ -381,6 +387,71 @@ class DashboardHandler(SimpleHTTPRequestHandler):
                     )
             else:
                 self.send_json(500, {"error": f"Dexcom API error: {e.code}"})
+        except Exception as e:
+            self.send_json(500, {"error": str(e)})
+
+    def handle_api_chat(self):
+        session = get_session_data(self)
+        if not session:
+            self.send_json(401, {"error": "Not logged in"})
+            return
+
+        if not GROQ_API_KEY:
+            self.send_json(503, {"error": "AI chat not configured. Set GROQ_API_KEY env var."})
+            return
+
+        try:
+            length = int(self.headers.get("Content-Length", 0))
+            body = json.loads(self.rfile.read(length).decode("utf-8"))
+            question = body.get("question", "").strip()
+            stats_summary = body.get("stats", "")
+
+            if not question:
+                self.send_json(400, {"error": "No question provided"})
+                return
+
+            # Call Groq API
+            system_prompt = (
+                "You are Prof. Glucose, a friendly and knowledgeable glucose monitoring assistant "
+                "in the 'Oh My Sugar' app. You help users understand their Dexcom G7 CGM data "
+                "and give practical food and lifestyle advice.\n\n"
+                "Rules:\n"
+                "- Be concise (2-4 sentences max)\n"
+                "- Be warm and encouraging, not clinical\n"
+                "- Reference the user's actual data when provided\n"
+                "- Give specific, actionable suggestions\n"
+                "- If asked about medications or dosing, say you can't advise on that and suggest consulting their doctor\n"
+                "- Use simple language, no jargon\n\n"
+                f"User's current glucose data summary:\n{stats_summary}"
+            )
+
+            groq_data = json.dumps({
+                "model": GROQ_MODEL,
+                "messages": [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": question},
+                ],
+                "max_tokens": 300,
+                "temperature": 0.7,
+            }).encode()
+
+            req = urllib.request.Request(
+                "https://api.groq.com/openai/v1/chat/completions",
+                data=groq_data,
+                headers={
+                    "Content-Type": "application/json",
+                    "Authorization": f"Bearer {GROQ_API_KEY}",
+                    "User-Agent": "OhMySugar/1.0",
+                },
+            )
+            with urllib.request.urlopen(req) as resp:
+                result = json.loads(resp.read().decode())
+                answer = result["choices"][0]["message"]["content"]
+                self.send_json(200, {"answer": answer})
+
+        except urllib.error.HTTPError as e:
+            body = e.read().decode()[:200]
+            self.send_json(500, {"error": f"AI service error: {body}"})
         except Exception as e:
             self.send_json(500, {"error": str(e)})
 
