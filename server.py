@@ -217,12 +217,20 @@ def fetch_readings(dexcom_sid, username, minutes=43200, max_count=50000):
             "maxCount": max_count,
         },
     )
+    print(f"[fetch] Dexcom returned {len(fresh)} fresh readings")
 
     # Save new readings to Supabase (non-blocking on duplicates)
-    save_new_readings(username, fresh)
+    if fresh:
+        save_new_readings(username, fresh)
 
     # Load full history from Supabase
     merged = load_stored_readings(username)
+    print(f"[fetch] Supabase returned {len(merged)} total readings")
+
+    # If Supabase failed but we have fresh data, return that
+    if not merged and fresh:
+        print("[fetch] Supabase empty, falling back to fresh readings")
+        merged = fresh
 
     _readings_cache[cache_key] = {"readings": merged, "time": now}
     return merged
