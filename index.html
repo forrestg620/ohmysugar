@@ -1149,7 +1149,8 @@ function renderAISummary(readings, selectedDay) {
   .then(r => r.json())
   .then(data => {
     if (data.answer) {
-      aiContentEl.innerHTML = `<div class="ai-section"><div class="ai-text" style="line-height:1.6">${data.answer.replace(/\n/g, '<br>')}</div></div>`;
+      const statusHtml = `<div class="ai-section" style="margin-bottom:10px"><span class="ai-tag ${statusClass}">${statusTag}</span></div>`;
+      aiContentEl.innerHTML = statusHtml + `<div class="ai-section"><div class="ai-text" style="line-height:1.6">${data.answer.replace(/\n/g, '<br>')}</div></div>`;
     } else {
       // AI failed, keep rule-based fallback but remove loading text
       aiContentEl.innerHTML = fallbackHtml;
