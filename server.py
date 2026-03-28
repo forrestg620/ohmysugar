@@ -117,8 +117,17 @@ def exchange_code_for_tokens(code):
         data=data,
         headers={"Content-Type": "application/x-www-form-urlencoded"},
     )
-    with urllib.request.urlopen(req) as resp:
-        return json.loads(resp.read().decode())
+    try:
+        with urllib.request.urlopen(req) as resp:
+            return json.loads(resp.read().decode())
+    except urllib.error.HTTPError as e:
+        body = e.read().decode()
+        try:
+            err = json.loads(body)
+            msg = err.get("error_description", err.get("error", body))
+        except Exception:
+            msg = body[:200]
+        raise RuntimeError(f"Dexcom token error: {msg}")
 
 
 def refresh_access_token(refresh_token):
@@ -231,7 +240,7 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         elif self.path == "/" or self.path == "/index.html":
             self.path = "/index.html"
             super().do_GET()
-        elif self.path == "/login":
+        elif self.path == "/login" or self.path.startswith("/login?"):
             self.path = "/login.html"
             super().do_GET()
         else:
