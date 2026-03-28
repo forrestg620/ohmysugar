@@ -152,7 +152,8 @@
     <h2 style="margin-bottom:0"><span class="ai-spark">&#9733;</span> Prof. Glucose's Suggestions</h2>
     <select id="dayPicker" style="padding:6px 12px;border-radius:8px;border:1px solid #CDD8C2;background:#FFFFFF;color:#3D4F3E;font-size:0.85rem;cursor:pointer;outline:none"></select>
   </div>
-  <div id="aiContent">Analyzing your glucose data...</div>
+  <div id="aiRuleBased"></div>
+  <div id="aiInsight" style="margin-top:8px"></div>
   <div style="margin-top:16px">
     <div style="font-size:0.75rem;text-transform:uppercase;letter-spacing:0.05em;color:#6B9E7A;margin-bottom:8px;font-weight:600">Daily Glucose Curve</div>
     <div class="chart-container" style="height:200px">
@@ -1124,18 +1125,17 @@ function renderAISummary(readings, selectedDay) {
     `Extended high periods (>180): ${highStr}. Extended low periods (<70): ${lowStr}. ` +
     `Peak hour: ${peakStr}.`;
 
-  // Show status badge + rule-based summary
-  const aiContentEl = document.getElementById('aiContent');
-  aiContentEl.innerHTML = `
+  // Rule-based summary — always visible, updates instantly
+  document.getElementById('aiRuleBased').innerHTML = `
     <div class="ai-section">
       <div class="ai-text"><span class="ai-tag ${statusClass}">${statusTag}</span> ${narrative}</div>
-    </div>
-    <div id="aiExtra" style="color:#8A9B7E;font-size:0.84rem;margin-top:8px">
-      <span class="ai-spark">&#9733;</span> Prof. Glucose is thinking...
     </div>`;
+
+  // AI insight — appends below, independent of rule-based
+  const insightEl = document.getElementById('aiInsight');
+  insightEl.innerHTML = `<div style="color:#8A9B7E;font-size:0.84rem"><span class="ai-spark">&#9733;</span> Prof. Glucose is thinking...</div>`;
   renderDailyDetailChart(src);
 
-  // Fetch AI suggestion and append below rule-based summary
   fetch('/api/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -1146,16 +1146,14 @@ function renderAISummary(readings, selectedDay) {
   })
   .then(r => r.json())
   .then(data => {
-    const el = document.getElementById('aiExtra');
-    if (el && data.answer) {
-      el.innerHTML = `<div class="ai-section"><div class="ai-section-title"><span class="ai-spark">&#9733;</span> Prof. Glucose's Insight</div><div class="ai-text" style="line-height:1.6">${data.answer.replace(/\n/g, '<br>')}</div></div>`;
-    } else if (el) {
-      el.remove();
+    if (data.answer) {
+      insightEl.innerHTML = `<div class="ai-section"><div class="ai-section-title"><span class="ai-spark">&#9733;</span> Prof. Glucose's Insight</div><div class="ai-text" style="line-height:1.6">${data.answer.replace(/\n/g, '<br>')}</div></div>`;
+    } else {
+      insightEl.innerHTML = '';
     }
   })
   .catch(() => {
-    const el = document.getElementById('aiExtra');
-    if (el) el.remove();
+    insightEl.innerHTML = '';
   });
 }
 
