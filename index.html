@@ -1097,22 +1097,54 @@ function renderAISummary(readings, selectedDay) {
     tip = `Solid day overall. Keep an eye on what you eat before your highest readings to find patterns.`;
   }
 
-  const html = `
+  // Build detailed stats string for AI context
+  const spikeStr = spikes.length ? spikes.map(s => `+${s.rise} mg/dL at ${fmtTime(s.time)} (${s.from}→${s.to})`).join(', ') : 'none';
+  const dropStr = drops.length ? drops.map(d => `-${d.drop} mg/dL at ${fmtTime(d.time)} (${d.from}→${d.to})`).join(', ') : 'none';
+  const highStr = highPeriods.length ? highPeriods.map(p => `${fmtTime(p.start)}-${fmtTime(p.end)}`).join(', ') : 'none';
+  const lowStr = lowPeriods.length ? lowPeriods.map(p => `${fmtTime(p.start)}-${fmtTime(p.end)}`).join(', ') : 'none';
+  const peakStr = peakHour !== null ? `${fmtHour(peakHour)} (avg ${Math.round(hourAvgs[peakHour])})` : 'N/A';
+
+  const aiContext = `Period: ${period}. Readings: ${vals.length}. ` +
+    `Avg: ${stats.avg} mg/dL, Min: ${stats.min}, Max: ${stats.max}, StdDev: ${stats.std}. ` +
+    `Time in range (70-180): ${tir.inRange.toFixed(1)}%, Low (<70): ${(tir.veryLow+tir.low).toFixed(1)}%, High (>180): ${(tir.high+tir.veryHigh).toFixed(1)}%. ` +
+    `Spikes (>40 rise in 30min): ${spikeStr}. Drops (>40 fall in 30min): ${dropStr}. ` +
+    `Extended high periods (>180): ${highStr}. Extended low periods (<70): ${lowStr}. ` +
+    `Peak hour: ${peakStr}.`;
+
+  // Show rule-based summary instantly as fallback
+  const fallbackHtml = `
     <div class="ai-section">
-      <div class="ai-section-title">${dayKey === 'all' ? 'Overall' : period} Analysis</div>
-      <div class="ai-text">${narrative}</div>
-    </div>
-    <div class="ai-section">
-      <div class="ai-section-title">Key Events</div>
-      <ul class="ai-text">${events}</ul>
-    </div>
-    <div class="ai-section">
-      <div class="ai-section-title">Actionable Tip</div>
-      <div class="ai-text">${tip}</div>
+      <div class="ai-text"><span class="ai-tag ${statusClass}">${statusTag}</span> ${narrative}</div>
     </div>
   `;
-  document.getElementById('aiContent').innerHTML = html;
+  document.getElementById('aiContent').innerHTML = fallbackHtml +
+    `<div id="aiSummaryLoading" style="color:#8A9B7E;font-size:0.84rem;margin-top:8px">
+      <span class="ai-spark">&#9733;</span> Prof. Glucose is analyzing your data...
+    </div>`;
   renderDailyDetailChart(src);
+
+  // Fetch AI-generated summary
+  fetch('/api/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      question: 'Based on my glucose data, give me a brief daily summary with: (1) how my day went in 1-2 sentences, (2) any notable events like spikes or lows and what might have caused them, (3) one specific actionable suggestion for tomorrow. Keep it warm, concise, and personal.',
+      stats: aiContext,
+    }),
+  })
+  .then(r => r.json())
+  .then(data => {
+    const el = document.getElementById('aiSummaryLoading');
+    if (el && data.answer) {
+      el.innerHTML = `<div class="ai-text" style="line-height:1.6">${data.answer.replace(/\n/g, '<br>')}</div>`;
+    } else if (el && data.error) {
+      el.remove(); // silently remove loading, keep rule-based fallback
+    }
+  })
+  .catch(() => {
+    const el = document.getElementById('aiSummaryLoading');
+    if (el) el.remove(); // keep rule-based fallback on error
+  });
 }
 
 function getStatsSummary() {
