@@ -1124,40 +1124,37 @@ function renderAISummary(readings, selectedDay) {
     `Extended high periods (>180): ${highStr}. Extended low periods (<70): ${lowStr}. ` +
     `Peak hour: ${peakStr}.`;
 
-  // Show rule-based summary as fallback
-  const fallbackHtml = `
-    <div class="ai-section">
-      <div class="ai-text"><span class="ai-tag ${statusClass}">${statusTag}</span> ${narrative}</div>
-    </div>
-  `;
+  // Show status badge + loading state
+  const statusHtml = `<div class="ai-section" style="margin-bottom:10px"><span class="ai-tag ${statusClass}">${statusTag}</span></div>`;
+  const fallbackBody = `<div class="ai-section"><div class="ai-text">${narrative}</div></div>`;
   const aiContentEl = document.getElementById('aiContent');
-  aiContentEl.innerHTML = fallbackHtml +
-    `<div style="color:#8A9B7E;font-size:0.84rem;margin-top:8px">
+  aiContentEl.innerHTML = statusHtml +
+    `<div id="aiBody" style="color:#8A9B7E;font-size:0.84rem">
       <span class="ai-spark">&#9733;</span> Prof. Glucose is analyzing your data...
     </div>`;
   renderDailyDetailChart(src);
 
-  // Fetch AI-generated summary — replaces the entire content on success
+  // Fetch AI summary — replaces only the body text, badge stays
   fetch('/api/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      question: 'Based on my glucose data, give me a brief daily summary with: (1) how my day went in 1-2 sentences, (2) any notable events like spikes or lows and what might have caused them, (3) one specific actionable suggestion for tomorrow. Keep it warm, concise, and personal. Do not use markdown formatting.',
+      question: 'Based on my glucose data, give me a brief daily summary with: (1) how my day went in 1-2 sentences, (2) any notable events like spikes or lows and what might have caused them, (3) one specific actionable suggestion for tomorrow. Keep it warm, concise, and personal. Do not use markdown formatting. Do not repeat the status rating.',
       stats: aiContext,
     }),
   })
   .then(r => r.json())
   .then(data => {
-    if (data.answer) {
-      const statusHtml = `<div class="ai-section" style="margin-bottom:10px"><span class="ai-tag ${statusClass}">${statusTag}</span></div>`;
-      aiContentEl.innerHTML = statusHtml + `<div class="ai-section"><div class="ai-text" style="line-height:1.6">${data.answer.replace(/\n/g, '<br>')}</div></div>`;
-    } else {
-      // AI failed, keep rule-based fallback but remove loading text
-      aiContentEl.innerHTML = fallbackHtml;
+    const body = document.getElementById('aiBody');
+    if (body && data.answer) {
+      body.innerHTML = `<div class="ai-text" style="line-height:1.6;color:#3D4F3E">${data.answer.replace(/\n/g, '<br>')}</div>`;
+    } else if (body) {
+      body.innerHTML = fallbackBody;
     }
   })
   .catch(() => {
-    aiContentEl.innerHTML = fallbackHtml;
+    const body = document.getElementById('aiBody');
+    if (body) body.innerHTML = fallbackBody;
   });
 }
 
