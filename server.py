@@ -163,7 +163,7 @@ def load_stored_readings(username):
 
 
 def save_new_readings(username, fresh_readings):
-    """Save only new readings to Supabase (upsert, skip duplicates)."""
+    """Save only new readings to Supabase in batches, skip duplicates."""
     uhash = _user_hash(username)
     rows = []
     for r in fresh_readings:
@@ -181,25 +181,32 @@ def save_new_readings(username, fresh_readings):
     if not rows:
         return
 
-    # Batch insert with on-conflict ignore (upsert)
-    try:
-        url = f"{SUPABASE_URL}/rest/v1/readings"
-        body = json.dumps(rows).encode()
-        req = urllib.request.Request(
-            url,
-            data=body,
-            method="POST",
-            headers={
-                "apikey": SUPABASE_KEY,
-                "Authorization": f"Bearer {SUPABASE_KEY}",
-                "Content-Type": "application/json",
-                "Prefer": "resolution=ignore-duplicates,return=minimal",
-            },
-        )
-        urllib.request.urlopen(req)
-    except urllib.error.HTTPError:
-        # Duplicates are expected, ignore 409 conflicts
-        pass
+    # Insert in batches of 50 to avoid payload limits
+    BATCH_SIZE = 50
+    saved = 0
+    for i in range(0, len(rows), BATCH_SIZE):
+        batch = rows[i : i + BATCH_SIZE]
+        try:
+            url = f"{SUPABASE_URL}/rest/v1/readings?on_conflict=user_hash,wt"
+            body = json.dumps(batch).encode()
+            req = urllib.request.Request(
+                url,
+                data=body,
+                method="POST",
+                headers={
+                    "apikey": SUPABASE_KEY,
+                    "Authorization": f"Bearer {SUPABASE_KEY}",
+                    "Content-Type": "application/json",
+                    "Prefer": "resolution=ignore-duplicates,return=minimal",
+                },
+            )
+            urllib.request.urlopen(req)
+            saved += len(batch)
+        except urllib.error.HTTPError as e:
+            print(f"[save] Batch insert error {e.code}: {e.read().decode()[:200]}")
+        except Exception as e:
+            print(f"[save] Batch insert exception: {e}")
+    print(f"[save] Attempted {len(rows)} rows in {(len(rows)-1)//BATCH_SIZE+1} batches, saved {saved}")
 
 
 def fetch_readings(dexcom_sid, username, minutes=43200, max_count=50000):
