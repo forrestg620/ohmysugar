@@ -1128,7 +1128,7 @@ function renderAISummary(readings, selectedDay) {
   // Rule-based summary — always visible, updates instantly
   document.getElementById('aiRuleBased').innerHTML = `
     <div class="ai-section">
-      <div class="ai-text"><span class="ai-tag ${statusClass}">${statusTag}</span> ${narrative}</div>
+      <div class="ai-text">${narrative}</div>
     </div>`;
 
   // AI insight — appends below, independent of rule-based
