@@ -27,13 +27,14 @@ DEXCOM_APP_ID = "d89443d2-327c-4a6f-89e5-496bbb0317db"
 # Signing/encryption key for cookies — set SECRET_KEY env var in production
 SECRET_KEY = os.environ.get("SECRET_KEY", secrets.token_hex(32))
 
+# Supabase configuration
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://fvjpxepiayldmyvlkpax.supabase.co")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ2anB4ZXBpYXlsZG15dmxrcGF4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ2NzE5NjAsImV4cCI6MjA5MDI0Nzk2MH0.JZD-nkZRCWesCZOEVwFkS3js5AM3r2AE8uLv9Z-GhAQ")
+
 # In-memory cache per user
 _readings_cache = {}  # username_hash -> { readings, time }
 CACHE_TTL_SECONDS = 300  # 5 minutes
 COOKIE_MAX_AGE = 30 * 24 * 3600  # 30 days
-
-# Data accumulation directory
-DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 
 
 def _derive_key():
@@ -119,68 +120,86 @@ def dexcom_login(username, password):
 
 
 def _user_hash(username):
-    """Hash username for use as filename — no PII on disk."""
+    """Hash username — no PII stored in database."""
     return hashlib.sha256(username.encode()).hexdigest()[:16]
 
 
-def _user_data_path(username):
-    """Path to a user's accumulated readings file."""
-    return os.path.join(DATA_DIR, f"{_user_hash(username)}.json")
+def supabase_request(method, path, data=None):
+    """Make a request to Supabase REST API."""
+    url = f"{SUPABASE_URL}/rest/v1/{path}"
+    body = json.dumps(data).encode() if data else None
+    req = urllib.request.Request(
+        url,
+        data=body,
+        method=method,
+        headers={
+            "apikey": SUPABASE_KEY,
+            "Authorization": f"Bearer {SUPABASE_KEY}",
+            "Content-Type": "application/json",
+            "Prefer": "return=minimal" if method == "POST" else "",
+        },
+    )
+    with urllib.request.urlopen(req) as resp:
+        if method == "GET":
+            return json.loads(resp.read().decode())
+        return resp.status
 
 
 def load_stored_readings(username):
-    """Load previously accumulated readings from disk."""
-    path = _user_data_path(username)
-    if not os.path.exists(path):
-        return []
+    """Load accumulated readings from Supabase."""
+    uhash = _user_hash(username)
     try:
-        with open(path, "r") as f:
-            return json.load(f)
-    except (json.JSONDecodeError, IOError):
+        rows = supabase_request(
+            "GET",
+            f"readings?user_hash=eq.{uhash}&select=raw&order=wt.desc&limit=26000",
+        )
+        return [row["raw"] for row in rows]
+    except Exception:
         return []
 
 
-def save_readings(username, readings):
-    """Save accumulated readings to disk."""
-    os.makedirs(DATA_DIR, exist_ok=True)
-    path = _user_data_path(username)
-    with open(path, "w") as f:
-        json.dump(readings, f)
+def save_new_readings(username, fresh_readings):
+    """Save only new readings to Supabase (upsert, skip duplicates)."""
+    uhash = _user_hash(username)
+    rows = []
+    for r in fresh_readings:
+        wt = r.get("WT", "")
+        if not wt:
+            continue
+        rows.append({
+            "user_hash": uhash,
+            "wt": wt,
+            "value": r.get("Value", 0),
+            "trend": r.get("Trend", ""),
+            "raw": r,
+        })
 
+    if not rows:
+        return
 
-def merge_readings(stored, fresh):
-    """Merge fresh API readings into stored history, deduplicating by timestamp."""
-    # Build set of existing timestamps for fast lookup
-    existing = set()
-    for r in stored:
-        existing.add(r.get("WT", ""))
-
-    merged = list(stored)
-    for r in fresh:
-        if r.get("WT", "") not in existing:
-            merged.append(r)
-            existing.add(r.get("WT", ""))
-
-    # Sort by timestamp (newest first, matching Dexcom API order)
-    def sort_key(r):
-        wt = r.get("WT", "Date(0)")
-        try:
-            return -int(wt.split("(")[1].split(")")[0].split("-")[0].split("+")[0])
-        except (IndexError, ValueError):
-            return 0
-
-    merged.sort(key=sort_key)
-
-    # Trim to 90 days max (~26000 readings at 5-min intervals)
-    max_readings = 26000
-    if len(merged) > max_readings:
-        merged = merged[:max_readings]
-
-    return merged
+    # Batch insert with on-conflict ignore (upsert)
+    try:
+        url = f"{SUPABASE_URL}/rest/v1/readings"
+        body = json.dumps(rows).encode()
+        req = urllib.request.Request(
+            url,
+            data=body,
+            method="POST",
+            headers={
+                "apikey": SUPABASE_KEY,
+                "Authorization": f"Bearer {SUPABASE_KEY}",
+                "Content-Type": "application/json",
+                "Prefer": "resolution=ignore-duplicates,return=minimal",
+            },
+        )
+        urllib.request.urlopen(req)
+    except urllib.error.HTTPError:
+        # Duplicates are expected, ignore 409 conflicts
+        pass
 
 
 def fetch_readings(dexcom_sid, username, minutes=43200, max_count=50000):
-    """Fetch glucose readings, merge with stored history, and cache."""
+    """Fetch glucose readings, save to Supabase, return merged history."""
     cache_key = _user_hash(username)
     now = datetime.now(timezone.utc)
     cached = _readings_cache.get(cache_key)
@@ -199,10 +218,11 @@ def fetch_readings(dexcom_sid, username, minutes=43200, max_count=50000):
         },
     )
 
-    # Load stored history, merge, and save
-    stored = load_stored_readings(username)
-    merged = merge_readings(stored, fresh)
-    save_readings(username, merged)
+    # Save new readings to Supabase (non-blocking on duplicates)
+    save_new_readings(username, fresh)
+
+    # Load full history from Supabase
+    merged = load_stored_readings(username)
 
     _readings_cache[cache_key] = {"readings": merged, "time": now}
     return merged
