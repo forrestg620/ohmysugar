@@ -808,9 +808,10 @@ function renderDailyTable(readings) {
     const dt = new Date(day + 'T12:00:00');
     const dayLabel = dt.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 
-    let badge = 'badge-green', label = 'Good';
-    if (tir.inRange < 50 || lowPct > 5) { badge = 'badge-red'; label = 'Needs attention'; }
-    else if (tir.inRange < 70) { badge = 'badge-yellow'; label = 'Fair'; }
+    let badge = 'badge-green', label = 'Excellent';
+    if (tir.inRange < 50 || lowPct > 5) { badge = 'badge-red'; label = 'Needs Attention'; }
+    else if (tir.inRange < 70) { badge = 'badge-yellow'; label = 'Needs Improvement'; }
+    else if (tir.inRange < 85) { badge = 'badge-green'; label = 'Good'; }
 
     return `<tr>
       <td><strong>${dayLabel}</strong></td>
